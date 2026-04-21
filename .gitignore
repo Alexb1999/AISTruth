@@ -1,0 +1,20 @@
+# Node.js
+node_modules/
+.next/
+out/
+build/
+.env*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+.pytest_cache/
+
+# Geospatial / Hardware
+*.log
+*.rinex
+.DS_Store
