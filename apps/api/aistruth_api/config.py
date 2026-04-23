@@ -12,6 +12,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DATABASE_URL", "AISTRUTH_DATABASE_URL"),
         description="asyncpg DSN, e.g. postgresql://user:pass@localhost:5432/aistruth",
     )
+    barentswatch_client_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("BARENTSWATCH_CLIENT_ID"),
+        description="OAuth client id from barentswatch.no MyPage (scope: ais).",
+    )
+    barentswatch_client_secret: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("BARENTSWATCH_CLIENT_SECRET"),
+        description="OAuth client secret (never commit; use env or secret store).",
+    )
 
 
 @lru_cache

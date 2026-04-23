@@ -23,7 +23,9 @@ External clients need a stable contract for track validation and explainability 
 
 ### Current implementation note
 
-The repository ships **demos** first: `POST /v1/demo/time-align` and `GET /v1/nearest-node` exercise Gap 1 and Gap 2 fixtures. Promote fields toward the `validate` contract as the pipeline matures.
+Shipped prototype: **`GET /v1/validate/{mmsi}`** with optional `from` / `to` query parameters (ISO-8601 UTC). It ingests **BarentsWatch** last-24h tracks, runs **implied-speed** heuristics in `aistruth_core.track_heuristics`, and attaches **PostGIS nearest-node** evidence when `DATABASE_URL` is configured. **GEODNET / RTCM fusion is not yet applied**; `evidence.time_align_method` documents that.
+
+Additional demos: `POST /v1/demo/time-align` and `GET /v1/nearest-node` exercise Gap 1 and Gap 2 fixtures.
 
 ## Consequences
 

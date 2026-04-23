@@ -23,3 +23,5 @@ cd apps/api && uvicorn main:app --reload
 Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for OpenAPI.
 
 Without `DATABASE_URL`, `/v1/nearest-node` returns 503; `/health` and `/v1/demo/time-align` still work.
+
+**Norwegian open AIS (BarentsWatch):** set `BARENTSWATCH_CLIENT_ID` and `BARENTSWATCH_CLIENT_SECRET`, then use `GET /v1/ais/norway/track/{mmsi}` or `GET /v1/ais/norway/latest?mmsi=…`. See [docs/integrations/barentswatch-ais.md](../../docs/integrations/barentswatch-ais.md).

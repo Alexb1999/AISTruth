@@ -7,7 +7,7 @@ import asyncpg
 from fastapi import FastAPI
 
 from aistruth_api.config import get_settings
-from aistruth_api.routes import demo, health, nearest
+from aistruth_api.routes import demo, health, nearest, norway_ais, validate
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -30,6 +30,8 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(demo.router, prefix="/v1")
     app.include_router(nearest.router, prefix="/v1")
+    app.include_router(norway_ais.router, prefix="/v1")
+    app.include_router(validate.router, prefix="/v1")
     return app
 
 

@@ -21,6 +21,7 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 
 - [Master scope & architecture](docs/AISTruth_Master_Scope.md): cloud-first SaaS blueprint, GEODNET fusion gaps, branching (`dev` / `stg` / `prod`), integration appendix (CRS, legal, API sketch link), roadmap, and monetization.
 - [ADR 001 — API contract sketch](docs/adr/001-api-contract-sketch.md): early `/v1/validate` shape and error model.
+- [BarentsWatch AIS (Phase 1 dev feed)](docs/integrations/barentswatch-ais.md): Norwegian open AIS — credentials and API routes.
 
 ## 🏗 Project Structure
 
@@ -44,6 +45,8 @@ cd apps/api && uvicorn main:app --reload
 ```
 
 Without `DATABASE_URL`, `/health` and `POST /v1/demo/time-align` still run; `GET /v1/nearest-node` returns 503 until Postgres is up.
+
+With BarentsWatch credentials, try **`GET /v1/validate/{mmsi}`** (optional `from` / `to` ISO UTC) for a first end-to-end **track + heuristics + optional nearest-node** JSON response (RTCM fusion still to come).
 
 ## 🛠 Tech Stack
 
