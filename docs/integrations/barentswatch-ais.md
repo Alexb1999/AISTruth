@@ -40,3 +40,5 @@ Responses are JSON arrays of `{ mmsi, time, lat, lon }` in **UTC** (`time` is IS
 ## Product note
 
 Treat redistribution and commercial use of raw or derived AIS according to **BarentsWatch / Kystverket terms** at the time you ship. For **Canadian Maritimes** product narratives, plan a second adapter (customer feed, receiver, or licensed aggregator) while keeping Norway for **R&D parity** and regression tests.
+
+For the RTK side of fusion, see [geodnet-rtk.md](geodnet-rtk.md) and `scripts/ntrip_smoke.py`.

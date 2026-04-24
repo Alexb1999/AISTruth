@@ -53,7 +53,7 @@ def analyze_track_motion(reports: list[AisPositionReport]) -> TrackHeuristicResu
     max_speed: float | None = None
     flags: list[str] = []
 
-    for prev, cur in zip(ordered, ordered[1:], strict=False):
+    for prev, cur in zip(ordered, ordered[1:]):
         spd = implied_speed_knots(prev, cur)
         if spd is None:
             flags.append("non_monotonic_or_zero_dt")

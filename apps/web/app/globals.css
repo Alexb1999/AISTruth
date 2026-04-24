@@ -1,0 +1,43 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  line-height: 1.4;
+}
+
+body {
+  margin: 0;
+  padding: 1.25rem;
+  max-width: 960px;
+}
+
+main h1 {
+  margin-top: 0;
+}
+
+pre {
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.error {
+  color: #b00020;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0 1rem;
+}
+
+input {
+  padding: 0.45rem 0.6rem;
+  min-width: 12rem;
+}
+
+button {
+  padding: 0.45rem 0.75rem;
+}

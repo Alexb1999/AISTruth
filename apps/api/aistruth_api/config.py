@@ -22,6 +22,46 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("BARENTSWATCH_CLIENT_SECRET"),
         description="OAuth client secret (never commit; use env or secret store).",
     )
+    cors_origins: str = Field(
+        default="http://127.0.0.1:3000,http://localhost:3000",
+        validation_alias=AliasChoices("AISTRUTH_CORS_ORIGINS"),
+        description="Comma-separated origins for CORS (dev Next.js).",
+    )
+    geodnet_ntrip_user: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_NTRIP_USER"),
+    )
+    geodnet_ntrip_password: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_NTRIP_PASSWORD"),
+    )
+    geodnet_ntrip_host: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_NTRIP_HOST"),
+    )
+    geodnet_ntrip_port: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_NTRIP_PORT"),
+    )
+    geodnet_ntrip_mount: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_NTRIP_MOUNT"),
+    )
+    geodnet_smoke_lat: float = Field(
+        default=59.6667,
+        validation_alias=AliasChoices("GEODNET_SMOKE_LAT"),
+        description="Default GGA latitude for NTRIP probes (decimal degrees).",
+    )
+    geodnet_smoke_lon: float = Field(
+        default=10.6333,
+        validation_alias=AliasChoices("GEODNET_SMOKE_LON"),
+        description="Default GGA longitude for NTRIP probes (decimal degrees).",
+    )
+    enable_geodnet_debug_routes: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("AISTRUTH_ENABLE_GEODNET_DEBUG"),
+        description="If true, register GET /v1/debug/geodnet-ntrip (local/dev only).",
+    )
 
 
 @lru_cache
