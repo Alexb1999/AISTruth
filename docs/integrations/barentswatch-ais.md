@@ -41,6 +41,17 @@ Empty array `[]` can mean **no positions in the last 24h** for that MMSI in thei
 
 9. **AISTruth routes:** With the same env vars on the API process, call `GET http://127.0.0.1:8000/v1/ais/norway/track/257111020` (or your MMSI) and `GET /docs` for OpenAPI.
 
+### Token errors
+
+**`{"error":"invalid_request"}`** on `https://id.barentswatch.no/connect/token` usually means the request is malformed or the IdP cannot parse your credentials:
+
+- **`client_id` must be the value issued by BarentsWatch** after you click **Create client** — typically a **UUID-like string** shown in **My clients**. It is **not** your email, **not** the “Client name” you typed in the form, and **not** `email:Client name`.
+- **`client_secret`** is the **password** you set on that form (≥12 characters), unless the portal shows a separate generated secret (use what they label as the secret).
+- **Shell vs `.env`:** `curl` does not read `.env` by itself. Either `export` both variables in the same terminal, or run `set -a && source apps/api/.env && set +a` before `curl` (zsh/bash).
+- Avoid trailing spaces or smart quotes when pasting `client_id` / `client_secret`.
+
+**`invalid_client`** → wrong id/secret. **`invalid_scope`** → client not allowed to use scope `ais` (adjust permissions in MyPage).
+
 ### Coverage reality check
 
 Open AIS via BarentsWatch is limited to **Norwegian economic zone and related areas** (see the map on the [Live AIS API](https://developer.barentswatch.no/docs/AIS/live-ais-api/) page). Vessels that only sail outside that area, or classes excluded from open data (e.g. small fishing / leisure rules), may return **no points** even when your credentials are correct.
