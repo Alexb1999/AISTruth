@@ -41,14 +41,33 @@ Empty array `[]` can mean **no positions in the last 24h** for that MMSI in thei
 
 9. **AISTruth routes:** With the same env vars on the API process, call `GET http://127.0.0.1:8000/v1/ais/norway/track/257111020` (or your MMSI) and `GET /docs` for OpenAPI.
 
+### Client ID shape (what My clients shows)
+
+Self‑registered BarentsWatch clients often use a **full client id** like `yourname@example.com:MyClient` (email, colon, then the client name you chose). That string is **correct** — copy it from the **Client ID** field in My clients. The portal also shows **Client ID urlencoded** (`%40` for `@`, `%3A` for `:`, `%20` for space); use that form only when a tool asks for “URL-encoded client id” and you are **not** re-encoding it again (see [Application registration](https://developer.barentswatch.no/docs/appreg/)).
+
 ### Token errors
 
-**`{"error":"invalid_request"}`** on `https://id.barentswatch.no/connect/token` usually means the request is malformed or the IdP cannot parse your credentials:
+**`{"error":"invalid_request"}`** is often a **format / quoting** problem, not “wrong account”:
 
-- **`client_id` must be the value issued by BarentsWatch** after you click **Create client** — typically a **UUID-like string** shown in **My clients**. It is **not** your email, **not** the “Client name” you typed in the form, and **not** `email:Client name`.
-- **`client_secret`** is the **password** you set on that form (≥12 characters), unless the portal shows a separate generated secret (use what they label as the secret).
+- **Quote `client_id` in `.env`** if it contains spaces or special characters, e.g.  
+  `BARENTSWATCH_CLIENT_ID="you@example.com:AISTruth API"`  
+  An unquoted line can be parsed incorrectly so the id or secret is truncated or split.
+- **`client_secret`:** Under **Client secrets**, open the **Created …** entry and copy the **secret value** the UI shows. That is what belongs in `BARENTSWATCH_CLIENT_SECRET` (it is the secret you created for that row; if you rotated secrets, use the current one).
 - **Shell vs `.env`:** `curl` does not read `.env` by itself. Either `export` both variables in the same terminal, or run `set -a && source apps/api/.env && set +a` before `curl` (zsh/bash).
-- Avoid trailing spaces or smart quotes when pasting `client_id` / `client_secret`.
+- **If it still fails**, try sending the portal’s **urlencoded** id **once**, without letting curl encode it again (so the `%` signs are not doubled):
+
+```bash
+curl -sS -X POST https://id.barentswatch.no/connect/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode "grant_type=client_credentials" \
+  --data-urlencode "scope=ais" \
+  --data-urlencode "client_secret=$BARENTSWATCH_CLIENT_SECRET" \
+  --data "client_id=PASTE_CLIENT_ID_URLENCODED_FROM_PORTAL"
+```
+
+(replace the value with the **Copy** button under **Client ID urlencoded** in My clients).
+
+Avoid smart quotes when pasting. See also [Using the OpenAPI documentation](https://developer.barentswatch.no/docs/usingopenapi/) — for some tools they require the **URL-encoded** client id.
 
 **`invalid_client`** → wrong id/secret. **`invalid_scope`** → client not allowed to use scope `ais` (adjust permissions in MyPage).
 
