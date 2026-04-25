@@ -38,6 +38,16 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AISTRUTH_TRACK_CACHE_TTL"),
         description="In-process TTL for BarentsWatch track fetches. Set 0 to disable.",
     )
+    ais_source: str = Field(
+        default="barentswatch",
+        validation_alias=AliasChoices("AISTRUTH_AIS_SOURCE"),
+        description="AIS adapter selection: barentswatch, spire, or file.",
+    )
+    spire_api_key: str | None = Field(default=None, validation_alias=AliasChoices("SPIRE_API_KEY"))
+    spire_base_url: str = Field(
+        default="https://api.spire.com",
+        validation_alias=AliasChoices("SPIRE_BASE_URL"),
+    )
     geodnet_ntrip_user: str | None = Field(
         default=None,
         validation_alias=AliasChoices("GEODNET_NTRIP_USER"),

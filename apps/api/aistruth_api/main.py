@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.database_url:
         pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=5)
     app.state.db_pool = pool
+    app.state.ais_source = settings.ais_source
     yield
     if pool is not None:
         await pool.close()

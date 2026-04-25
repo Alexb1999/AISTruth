@@ -96,6 +96,26 @@ class ValidateResponse(BaseModel):
     evidence: ValidateEvidence
 
 
+class BulkValidateRequest(BaseModel):
+    mmsi: list[int] = Field(min_length=1, max_length=50)
+    from_: datetime | None = Field(default=None, alias="from")
+    to: datetime | None = None
+    fusion: bool = False
+
+    model_config = {"populate_by_name": True}
+
+
+class BulkValidateResult(BaseModel):
+    mmsi: int
+    result: ValidateResponse | None = None
+    error: str | None = None
+    status_code: int | None = None
+
+
+class BulkValidateResponse(BaseModel):
+    results: list[BulkValidateResult]
+
+
 class ValidationRunRecord(BaseModel):
     id: str
     mmsi: int

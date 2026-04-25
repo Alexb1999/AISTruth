@@ -1,8 +1,8 @@
-# ADR 001: Public validation API sketch (v1)
+# ADR 001: Public validation API contract (v1)
 
 ## Status
 
-Accepted sketch — implement against this shape; refine in ADR revisions.
+Accepted.
 
 ## Context
 
@@ -10,24 +10,29 @@ External clients need a stable contract for track validation and explainability 
 
 ## Decision
 
-### `GET /v1/validate/{mmsi}` (future)
+### `GET /v1/validate/{mmsi}`
 
 - **Path:** `mmsi` integer (9 digits typical).
-- **Query:** `from` / `to` ISO-8601 UTC bounds (required for MVP to bound cost); optional `cursor` for pagination.
-- **200 body (example keys):** `mmsi`, `window`, `confidence_score`, `flags[]`, `evidence` (inputs hash or snapshot id, `rules_version`, `nearest_node_id`, `baseline_m`, `time_align_method`).
+- **Query:** optional `from` / `to` ISO-8601 UTC bounds, optional `geodnet_probe=true`, optional `fusion=true`.
+- **200 body:** `mmsi`, `window`, `confidence_score`, `flags[]`, `evidence`.
+- **Evidence:** `rules_version`, `nearest_node_id`, `baseline_m`, `max_implied_speed_knots`, `time_align_method`, `spoofing_findings[]`, optional `geodnet_ntrip_probe`, optional `fusion_result`.
 - **Errors:** `400` invalid window; `404` no data for MMSI in window; `429` rate limit; `503` upstream AIS/GEODNET unavailable.
 
-### Bulk (optional extension)
+### `POST /v1/validate/bulk`
 
-- `POST /v1/validate/batch` with JSON array of `{mmsi, from, to}` capped by configurable max items.
+- **Body:** `{ "mmsi": [257000000], "from": "...", "to": "...", "fusion": false }`.
+- **200 body:** `{ "results": [{ "mmsi": 257000000, "result": {...}, "error": null, "status_code": null }] }`.
+- Per-MMSI failures are returned in the item-level `error` / `status_code` fields rather than failing the whole bulk request.
 
-### Current implementation note
+### Supporting routes
 
-Shipped prototype: **`GET /v1/validate/{mmsi}`** with optional `from` / `to` query parameters (ISO-8601 UTC). It ingests **BarentsWatch** last-24h tracks, runs **implied-speed** heuristics in `aistruth_core.track_heuristics`, and attaches **PostGIS nearest-node** evidence when `DATABASE_URL` is configured. Optional **`geodnet_probe=true`** adds **`evidence.geodnet_ntrip_probe`** (live NTRIP bytes + coarse RTCM3 message histogram; GGA at latest AIS fix). **GEODNET / RTCM fusion is not yet applied**; `evidence.time_align_method` documents that.
-
-Additional demos: `POST /v1/demo/time-align` and `GET /v1/nearest-node` exercise Gap 1 and Gap 2 fixtures.
+- `GET /v1/validate/{mmsi}/history` returns persisted validation runs when `DATABASE_URL` is configured.
+- `POST /v1/demo/time-align` exercises the slerp time-alignment path.
+- `GET /v1/nearest-node` exercises PostGIS nearest-node lookup.
+- `GET /v1/debug/geodnet-ntrip` is dev-only and gated by `AISTRUTH_ENABLE_GEODNET_DEBUG`.
 
 ## Consequences
 
 - OpenAPI remains the source of truth at runtime (`/docs`).
 - Version prefix `/v1` allows breaking changes under `/v2` without silent client breakage.
+- `fusion=true` currently returns an explicit telemetry-backed `rtk_v1` evidence contract. It does not claim centimeter-class rover correction until real rover GNSS observations are present.

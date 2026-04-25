@@ -8,12 +8,12 @@
 
 ## 🌊 The Mission
 
-Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fidelity verification layer by fusing global AIS streams with local GEODNET RTK (Real-Time Kinematic) corrections. We turn 5-meter uncertainty into 2-centimeter certainty.
+Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fidelity verification layer by fusing AIS tracks, coastal context, GEODNET correction telemetry, and integrity heuristics. The long-term goal is centimeter-class RTK validation where rover observations and geometry support it; the current MVP focuses on auditable integrity evidence without overclaiming a solved rover position.
 
 ## 🚀 Key Capabilities
 
-- **RTK-Corrected AIS:** Apply centimeter-level ground truth to coastal vessel traffic.
-- **Spoofing Guard:** Detect GNSS manipulation by cross-referencing vessel reports with local ionospheric noise profiles.
+- **RTK Evidence Contract:** Validate GEODNET correction stream freshness and expose an `rtk_v1` evidence shape ready for a future rover-observation solver.
+- **Spoofing Guard:** Detect suspicious track behavior with impossible-jump, freeze, and identity-swap findings.
 - **Integrity Scoring:** A proprietary "Trust Score" for vessels in coastal validation zones wherever GEODNET coverage supports fusion.
 - **Cloud-First:** Fuse AIS with the public GEODNET network—no owned miner or coastal "super node" required to ship the MVP.
 
@@ -26,10 +26,10 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 
 ## 🏗 Project Structure
 
-- `apps/web`: Next.js 14 dev UI (`npm install && npm run dev`) — MMSI → `/v1/validate/{mmsi}`.
+- `apps/web`: Next.js 14 + Tailwind dev UI (`npm install && npm run dev`) — MMSI → `/v1/validate/{mmsi}` with map/evidence panels.
 - `apps/api`: Runnable FastAPI app (`uvicorn main:app` from this directory); OpenAPI at `/docs`.
-- `packages/core`: Truth-engine library (`aistruth_core`: time sync, AIS `Protocol` stubs).
-- `docker/`: PostGIS fixture schema for nearest-node demos.
+- `packages/core`: Truth-engine library (`aistruth_core`: time sync, RTCM/MSM helpers, spoofing findings, AIS adapters).
+- `docker/`: PostGIS fixture schema for nearest-node demos and validation persistence.
 - `hardware` (optional/future): Notes for any proprietary ground station; not required for the core SaaS path.
 
 ## 💻 Local development
@@ -47,7 +47,7 @@ cd apps/api && uvicorn main:app --reload
 
 Without `DATABASE_URL`, `/health` and `POST /v1/demo/time-align` still run; `GET /v1/nearest-node` returns 503 until Postgres is up.
 
-With BarentsWatch credentials, try **`GET /v1/validate/{mmsi}`** (optional `from` / `to` ISO UTC) for a first end-to-end **track + heuristics + optional nearest-node** JSON response (RTCM fusion still to come).
+With BarentsWatch credentials, try **`GET /v1/validate/{mmsi}`** (optional `from` / `to` ISO UTC) for **track + spoofing findings + optional nearest-node** evidence. Add `fusion=true` to attach RTK correction telemetry evidence.
 
 **GEODNET NTRIP telemetry (dev):** with `GEODNET_NTRIP_USER` / `GEODNET_NTRIP_PASSWORD` on the API, call **`GET /v1/debug/geodnet-ntrip?seconds=5`**, or **`GET /v1/validate/{mmsi}?geodnet_probe=true`** (adds latency; GGA at latest AIS fix). See [docs/integrations/geodnet-rtk.md](docs/integrations/geodnet-rtk.md).
 
@@ -58,10 +58,12 @@ With BarentsWatch credentials, try **`GET /v1/validate/{mmsi}`** (optional `from
 ## 🛠 Tech Stack
 
 - **Languages:** Python (Data Science/API), TypeScript (Frontend).
-- **Currently shipped:** FastAPI, Next.js 14, PostGIS, async BarentsWatch HTTP ingest, custom
-  time-sync / RTCM telemetry helpers.
-- **Planned:** Leaflet/Mapbox dashboard map, Tailwind-based UI polish, and a real RTK fusion
-  engine backed by a GNSS positioning library.
+- **Currently shipped:** FastAPI, Next.js 14, Tailwind, Leaflet, PostGIS, Alembic, async BarentsWatch HTTP ingest, RTCM/MSM telemetry helpers, spoofing findings, file replay, and Spire-shaped BYOK adapter.
+- **Planned:** True RTK solver integration once rover GNSS observations are available.
+
+## MVP Boundary
+
+The MVP proves ingest, time alignment, nearest-node context, correction-stream telemetry, scoring evidence, persistence, and dashboard workflows. It does **not** yet prove centimeter-class vessel position correction because AIS alone is not a rover GNSS observation stream.
 
 ---
 

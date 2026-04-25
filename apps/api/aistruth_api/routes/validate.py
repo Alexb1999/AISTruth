@@ -19,6 +19,9 @@ from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
 from aistruth_api.rate_limit import limiter
 from aistruth_api.schemas import (
+    BulkValidateRequest,
+    BulkValidateResponse,
+    BulkValidateResult,
     ValidateEvidence,
     ValidateResponse,
     ValidateWindow,
@@ -61,6 +64,10 @@ def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
     return cid, sec
 
 
+def _http_error_detail(exc: HTTPException) -> str:
+    return exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+
+
 async def _persist_validation_run(
     request: Request,
     response: ValidateResponse,
@@ -99,6 +106,38 @@ async def _persist_validation_run(
             )
         except asyncpg.UndefinedTableError:
             log.warning("validation_runs table missing; run Alembic migrations")
+
+
+@router.post("/validate/bulk", response_model=BulkValidateResponse)
+@limiter.limit("10/minute")
+async def validate_bulk(
+    request: Request,
+    body: BulkValidateRequest,
+    settings: Settings = Depends(get_settings),
+) -> BulkValidateResponse:
+    results: list[BulkValidateResult] = []
+    for mmsi in body.mmsi:
+        try:
+            result = await validate_mmsi(
+                request=request,
+                mmsi=mmsi,
+                time_from=body.from_,
+                time_to=body.to,
+                geodnet_probe=False,
+                fusion=body.fusion,
+                geodnet_probe_seconds=4.0,
+                settings=settings,
+            )
+            results.append(BulkValidateResult(mmsi=mmsi, result=result))
+        except HTTPException as exc:
+            results.append(
+                BulkValidateResult(
+                    mmsi=mmsi,
+                    error=_http_error_detail(exc),
+                    status_code=exc.status_code,
+                )
+            )
+    return BulkValidateResponse(results=results)
 
 
 @router.get("/validate/{mmsi}", response_model=ValidateResponse)

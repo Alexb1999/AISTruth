@@ -67,6 +67,20 @@ def test_debug_geodnet_route_disabled(app: FastAPI) -> None:
 
 
 @pytest.mark.asyncio
+async def test_bulk_validate_returns_per_mmsi_errors(app: FastAPI, client: AsyncClient) -> None:
+    def settings_without_barentswatch() -> Settings:
+        return Settings(barentswatch_client_id=None, barentswatch_client_secret=None)
+
+    app.dependency_overrides[get_settings] = settings_without_barentswatch
+    response = await client.post("/v1/validate/bulk", json={"mmsi": [257000000, 257000001]})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["mmsi"] for item in payload["results"]] == [257000000, 257000001]
+    assert {item["status_code"] for item in payload["results"]} == {503}
+
+
+@pytest.mark.asyncio
 async def test_v1_routes_require_api_key_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AISTRUTH_API_KEYS", "test-key")
     get_settings.cache_clear()
