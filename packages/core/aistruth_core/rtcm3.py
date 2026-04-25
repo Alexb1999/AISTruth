@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterator
 
 
-def iter_rtcm3_frames(buf: bytes | bytearray | memoryview):
+def iter_rtcm3_frames(buf: bytes | bytearray | memoryview) -> Iterator[tuple[int | None, int]]:
     """Yield ``(message_number_or_none, payload_len)`` for each plausible RTCM3 frame.
 
     CRC is **not** validated; malformed streams may produce false positives. Good enough

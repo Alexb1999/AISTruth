@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -11,7 +11,7 @@ from aistruth_core.barentswatch import (
 
 def test_parse_msgtime_fraction_trim() -> None:
     t = parse_msgtime("2022-11-02T13:41:05.8449617+00:00")
-    assert t.tzinfo == timezone.utc
+    assert t.tzinfo == UTC
     assert t.microsecond == 844961
 
 
@@ -27,7 +27,7 @@ def test_ais_position_from_row() -> None:
     assert r.mmsi == 259139000
     assert r.lat == pytest.approx(63.642362)
     assert r.lon == pytest.approx(9.613247)
-    assert r.t == datetime(2022, 11, 2, 13, 57, 43, tzinfo=timezone.utc)
+    assert r.t == datetime(2022, 11, 2, 13, 57, 43, tzinfo=UTC)
 
 
 def test_reports_sorted_oldest_first() -> None:

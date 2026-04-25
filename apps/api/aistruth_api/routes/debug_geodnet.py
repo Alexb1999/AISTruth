@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import asdict
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from aistruth_api.config import Settings, get_settings
+from aistruth_api.rate_limit import limiter
+from aistruth_api.schemas import NtripProbeSummary
 from aistruth_core.nmea_gga import build_gpgga
 from aistruth_core.ntrip_probe import run_ntrip_probe
 
@@ -17,7 +18,10 @@ router = APIRouter(tags=["debug-geodnet"])
 log = logging.getLogger(__name__)
 
 
-def _geodnet_ntrip_params(settings: Settings) -> tuple[str, str, str, int, str, float, float] | None:
+NtripParams = tuple[str, str, str, int, str, float, float]
+
+
+def _geodnet_ntrip_params(settings: Settings) -> NtripParams | None:
     user = settings.geodnet_ntrip_user
     password = settings.geodnet_ntrip_password
     if not user or not password:
@@ -30,11 +34,13 @@ def _geodnet_ntrip_params(settings: Settings) -> tuple[str, str, str, int, str, 
     return user, password, host, port, mount, lat, lon
 
 
-@router.get("/debug/geodnet-ntrip")
+@router.get("/debug/geodnet-ntrip", response_model=NtripProbeSummary)
+@limiter.limit("6/minute")
 async def geodnet_ntrip_debug(
+    request: Request,
     seconds: float = Query(default=5.0, ge=1.0, le=15.0),
     settings: Settings = Depends(get_settings),
-) -> dict[str, Any]:
+) -> NtripProbeSummary:
     """Open an NTRIP session, send periodic GGA at ``GEODNET_SMOKE_*``, return RTCM telemetry.
 
     Intended for local/dev verification only; do not expose publicly without auth.
@@ -43,7 +49,9 @@ async def geodnet_ntrip_debug(
     if params is None:
         raise HTTPException(
             status_code=503,
-            detail="GEODNET NTRIP not configured. Set GEODNET_NTRIP_USER and GEODNET_NTRIP_PASSWORD.",
+            detail=(
+                "GEODNET NTRIP not configured. Set GEODNET_NTRIP_USER and GEODNET_NTRIP_PASSWORD."
+            ),
         )
     user, password, host, port, mount, lat, lon = params
 
@@ -63,7 +71,7 @@ async def geodnet_ntrip_debug(
         gga_lat=lat,
         gga_lon=lon,
     )
-    payload = asdict(result)
+    payload = NtripProbeSummary(**asdict(result))
     log.info(
         "geodnet_ntrip_probe host=%s mount=%s ok=%s bytes=%s frames=%s",
         host,

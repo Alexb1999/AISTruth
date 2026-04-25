@@ -58,8 +58,10 @@ With BarentsWatch credentials, try **`GET /v1/validate/{mmsi}`** (optional `from
 ## 🛠 Tech Stack
 
 - **Languages:** Python (Data Science/API), TypeScript (Frontend).
-- **Frameworks:** FastAPI, Next.js 14, Tailwind CSS.
-- **Geospatial:** PostGIS, Leaflet/Mapbox, `pyais`, `gnss-lib-py`.
+- **Currently shipped:** FastAPI, Next.js 14, PostGIS, async BarentsWatch HTTP ingest, custom
+  time-sync / RTCM telemetry helpers.
+- **Planned:** Leaflet/Mapbox dashboard map, Tailwind-based UI polish, and a real RTK fusion
+  engine backed by a GNSS positioning library.
 
 ---
 

@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from aistruth_api.schemas import TimeAlignResult
 from aistruth_core.time_sync import PositionSample, interpolate_position_at
 
 router = APIRouter(tags=["demo"])
@@ -20,11 +21,11 @@ class TimeAlignDemoBody(BaseModel):
     target_t: datetime = Field(description="UTC correction epoch (must be between t0 and t1)")
 
 
-@router.post("/demo/time-align")
-async def demo_time_align(body: TimeAlignDemoBody) -> dict[str, float | str]:
+@router.post("/demo/time-align", response_model=TimeAlignResult)
+async def demo_time_align(body: TimeAlignDemoBody) -> TimeAlignResult:
     samples = [
         PositionSample(body.t0, body.lat0, body.lon0),
         PositionSample(body.t1, body.lat1, body.lon1),
     ]
     lat, lon, method = interpolate_position_at(samples, body.target_t)
-    return {"lat": lat, "lon": lon, "method": method}
+    return TimeAlignResult(lat=lat, lon=lon, method=method)

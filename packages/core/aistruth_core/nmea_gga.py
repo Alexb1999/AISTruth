@@ -25,9 +25,6 @@ def build_gpgga(lat: float, lon: float, utc_hhmmss: str = "120000.00") -> bytes:
     ew = "E" if lon >= 0 else "W"
     lon_field = f"{lon_deg:03d}{lon_min:07.4f}"
 
-    body = (
-        f"GPGGA,{utc_hhmmss},{lat_field},{ns},{lon_field},{ew},"
-        "1,12,0.8,5.0,M,0.0,M,,"
-    )
+    body = f"GPGGA,{utc_hhmmss},{lat_field},{ns},{lon_field},{ew},1,12,0.8,5.0,M,0.0,M,,"
     cs = nmea_checksum(body)
     return f"${body}*{cs:02X}\r\n".encode("ascii")

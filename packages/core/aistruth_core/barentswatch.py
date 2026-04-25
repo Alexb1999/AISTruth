@@ -6,7 +6,7 @@ Official docs: https://developer.barentswatch.no/docs/AIS/examples/
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from aistruth_core.ais_adapter import AisPositionReport
@@ -23,8 +23,8 @@ def parse_msgtime(value: str) -> datetime:
     s = _FRACTION_TRIM.sub(r"\1", s)
     dt = datetime.fromisoformat(s)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def ais_position_from_combined_row(row: dict[str, Any]) -> AisPositionReport:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Minimal NTRIP client smoke test for GEODNET RTK (or compatible caster).
 
-Uses shared probe logic from ``aistruth_core`` (install editable: ``pip install -e ./packages/core``).
+Uses shared probe logic from ``aistruth_core``.
 
 Usage:
   export GEODNET_NTRIP_USER=...
@@ -107,7 +107,12 @@ async def _async_main(*, seconds: float) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="NTRIP smoke test for GEODNET RTK")
-    parser.add_argument("--seconds", type=float, default=15.0, help="How long to read after connect")
+    parser.add_argument(
+        "--seconds",
+        type=float,
+        default=15.0,
+        help="How long to read after connect",
+    )
     parser.add_argument(
         "--env-file",
         type=str,

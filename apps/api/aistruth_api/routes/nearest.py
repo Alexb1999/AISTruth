@@ -1,16 +1,21 @@
 from fastapi import APIRouter, HTTPException, Request
 
+from aistruth_api.schemas import NearestNodeResponse, QueryPoint
+
 router = APIRouter(tags=["spatial"])
 
 
-@router.get("/nearest-node")
-async def nearest_node(request: Request, lat: float, lon: float) -> dict[str, object]:
+@router.get("/nearest-node", response_model=NearestNodeResponse)
+async def nearest_node(request: Request, lat: float, lon: float) -> NearestNodeResponse:
     """Return nearest fixture `geodnet_nodes` row using PostGIS geography ordering."""
     pool = getattr(request.app.state, "db_pool", None)
     if pool is None:
         raise HTTPException(
             status_code=503,
-            detail="DATABASE_URL not set or pool unavailable. Start docker compose and export DATABASE_URL.",
+            detail=(
+                "DATABASE_URL not set or pool unavailable. Start docker compose and "
+                "export DATABASE_URL."
+            ),
         )
     if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
         raise HTTPException(status_code=400, detail="lat/lon out of range")
@@ -34,9 +39,9 @@ async def nearest_node(request: Request, lat: float, lon: float) -> dict[str, ob
         )
     if row is None:
         raise HTTPException(status_code=404, detail="No active nodes in database")
-    return {
-        "id": row["id"],
-        "name": row["name"],
-        "distance_m": float(row["dist_m"]),
-        "query": {"lat": lat, "lon": lon},
-    }
+    return NearestNodeResponse(
+        id=row["id"],
+        name=row["name"],
+        distance_m=float(row["dist_m"]),
+        query=QueryPoint(lat=lat, lon=lon),
+    )

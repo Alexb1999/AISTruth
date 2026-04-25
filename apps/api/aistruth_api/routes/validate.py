@@ -1,4 +1,4 @@
-"""Prototype validation endpoint — BarentsWatch track + motion heuristics + optional nearest node."""
+"""Prototype validation endpoint."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
+from aistruth_api.rate_limit import limiter
+from aistruth_api.schemas import ValidateEvidence, ValidateResponse, ValidateWindow
 from aistruth_core.barentswatch import reports_from_track_rows
 from aistruth_core.nmea_gga import build_gpgga
 from aistruth_core.ntrip_probe import run_ntrip_probe
@@ -36,7 +38,8 @@ def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
     return cid, sec
 
 
-@router.get("/validate/{mmsi}")
+@router.get("/validate/{mmsi}", response_model=ValidateResponse)
+@limiter.limit("30/minute")
 async def validate_mmsi(
     request: Request,
     mmsi: int,
@@ -44,7 +47,10 @@ async def validate_mmsi(
     time_to: datetime | None = Query(default=None, alias="to"),
     geodnet_probe: bool = Query(
         default=False,
-        description="If true, run a short GEODNET NTRIP probe (adds latency; uses last AIS fix for GGA).",
+        description=(
+            "If true, run a short GEODNET NTRIP probe; adds latency and uses the "
+            "last AIS fix for GGA."
+        ),
     ),
     geodnet_probe_seconds: float = Query(
         default=4.0,
@@ -53,7 +59,7 @@ async def validate_mmsi(
         description="NTRIP collection duration when geodnet_probe=true",
     ),
     settings: Settings = Depends(get_settings),
-) -> dict[str, Any]:
+) -> ValidateResponse:
     """MVP validation: AIS track (BarentsWatch 24h) + implied-speed flags + optional PostGIS node.
 
     GEODNET / RTCM fusion is not applied yet; ``time_align_method`` documents that gap explicitly.
@@ -66,12 +72,22 @@ async def validate_mmsi(
     cid, sec = _require_barentswatch_credentials(settings)
     try:
         token = await barentswatch_client.fetch_access_token(cid, sec)
-        rows = await barentswatch_client.fetch_track_last_24h(token, mmsi)
+        rows = await barentswatch_client.fetch_track_last_24h_cached(
+            token,
+            mmsi,
+            ttl_seconds=settings.track_cache_ttl_seconds,
+        )
         reports = reports_from_track_rows(rows)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="No AIS track for MMSI in upstream window") from e
-        raise HTTPException(status_code=502, detail=f"Upstream AIS error: {e.response.status_code}") from e
+            raise HTTPException(
+                status_code=404,
+                detail="No AIS track for MMSI in upstream window",
+            ) from e
+        raise HTTPException(
+            status_code=502,
+            detail=f"Upstream AIS error: {e.response.status_code}",
+        ) from e
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail="Upstream AIS request failed") from e
 
@@ -125,7 +141,10 @@ async def validate_mmsi(
         if not gu or not gp:
             raise HTTPException(
                 status_code=400,
-                detail="geodnet_probe=true but GEODNET_NTRIP_USER / GEODNET_NTRIP_PASSWORD are not set on the API.",
+                detail=(
+                    "geodnet_probe=true but GEODNET_NTRIP_USER / "
+                    "GEODNET_NTRIP_PASSWORD are not set on the API."
+                ),
             )
         host = settings.geodnet_ntrip_host or "rtk.geodnet.com"
         port = int(settings.geodnet_ntrip_port or 2101)
@@ -157,14 +176,14 @@ async def validate_mmsi(
                 probe.bytes_total,
                 probe.rtcm_frame_count,
             )
-        except Exception as e:  # pragma: no cover - network paths
+        except (OSError, TimeoutError) as e:  # pragma: no cover - network paths
             evidence["geodnet_ntrip_probe"] = {"ok": False, "error": repr(e)}
             log.warning("validate geodnet_probe failed mmsi=%s err=%s", mmsi, e)
 
-    return {
-        "mmsi": mmsi,
-        "window": {"from": window_start, "to": window_end},
-        "confidence_score": motion.confidence_score,
-        "flags": motion.flags,
-        "evidence": evidence,
-    }
+    return ValidateResponse(
+        mmsi=mmsi,
+        window=ValidateWindow.model_validate({"from": window_start, "to": window_end}),
+        confidence_score=motion.confidence_score,
+        flags=motion.flags,
+        evidence=ValidateEvidence(**evidence),
+    )

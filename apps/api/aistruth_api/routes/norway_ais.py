@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
+from aistruth_api.schemas import NorwayPoint
 from aistruth_core.barentswatch import ais_position_from_combined_row, reports_from_track_rows
 
 router = APIRouter(tags=["ais-norway"])
@@ -27,11 +28,11 @@ def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
     return cid, sec
 
 
-@router.get("/ais/norway/track/{mmsi}")
+@router.get("/ais/norway/track/{mmsi}", response_model=list[NorwayPoint])
 async def norway_track_last_24h(
     mmsi: int,
     settings: Settings = Depends(get_settings),
-) -> list[dict[str, object]]:
+) -> list[NorwayPoint]:
     """Return parsed AIS positions (last 24h) for one MMSI inside Norwegian open-data area."""
     cid, sec = _require_barentswatch_credentials(settings)
     try:
@@ -39,26 +40,29 @@ async def norway_track_last_24h(
         rows = await barentswatch_client.fetch_track_last_24h(token, mmsi)
         reports = reports_from_track_rows(rows)
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"Upstream AIS error: {e.response.status_code}") from e
+        raise HTTPException(
+            status_code=502,
+            detail=f"Upstream AIS error: {e.response.status_code}",
+        ) from e
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail="Upstream AIS request failed") from e
 
     return [
-        {
-            "mmsi": r.mmsi,
-            "time": r.t.isoformat(),
-            "lat": r.lat,
-            "lon": r.lon,
-        }
+        NorwayPoint(
+            mmsi=r.mmsi,
+            time=r.t.isoformat(),
+            lat=r.lat,
+            lon=r.lon,
+        )
         for r in reports
     ]
 
 
-@router.get("/ais/norway/latest")
+@router.get("/ais/norway/latest", response_model=list[NorwayPoint])
 async def norway_latest_positions(
     mmsi: list[int] = Query(default_factory=list, description="One or more MMSI to query"),
     settings: Settings = Depends(get_settings),
-) -> list[dict[str, object]]:
+) -> list[NorwayPoint]:
     """Latest combined snapshot for the given MMSI list (BarentsWatch POST /latest/combined)."""
     if not mmsi:
         raise HTTPException(status_code=400, detail="Provide at least one mmsi query parameter")
@@ -68,16 +72,19 @@ async def norway_latest_positions(
         rows = await barentswatch_client.fetch_latest_positions(token, mmsi)
         reports = [ais_position_from_combined_row(row) for row in rows]
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"Upstream AIS error: {e.response.status_code}") from e
+        raise HTTPException(
+            status_code=502,
+            detail=f"Upstream AIS error: {e.response.status_code}",
+        ) from e
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail="Upstream AIS request failed") from e
 
     return [
-        {
-            "mmsi": r.mmsi,
-            "time": r.t.isoformat(),
-            "lat": r.lat,
-            "lon": r.lon,
-        }
+        NorwayPoint(
+            mmsi=r.mmsi,
+            time=r.t.isoformat(),
+            lat=r.lat,
+            lon=r.lon,
+        )
         for r in reports
     ]

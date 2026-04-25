@@ -1,8 +1,10 @@
 from fastapi import APIRouter
 
+from aistruth_api.schemas import HealthResponse
+
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+@router.get("/health", response_model=HealthResponse)
+async def health() -> HealthResponse:
+    return HealthResponse(status="ok")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aistruth_core.ais_adapter import AisPositionReport
 
@@ -53,7 +53,7 @@ def analyze_track_motion(reports: list[AisPositionReport]) -> TrackHeuristicResu
     max_speed: float | None = None
     flags: list[str] = []
 
-    for prev, cur in zip(ordered, ordered[1:]):
+    for prev, cur in zip(ordered, ordered[1:], strict=False):
         spd = implied_speed_knots(prev, cur)
         if spd is None:
             flags.append("non_monotonic_or_zero_dt")
@@ -98,10 +98,10 @@ def filter_reports_by_window(
     """Filter to UTC-aware window inclusive of bounds when provided."""
     out: list[AisPositionReport] = []
     for r in reports:
-        t = r.t.astimezone(timezone.utc)
-        if time_from is not None and t < time_from.astimezone(timezone.utc):
+        t = r.t.astimezone(UTC)
+        if time_from is not None and t < time_from.astimezone(UTC):
             continue
-        if time_to is not None and t > time_to.astimezone(timezone.utc):
+        if time_to is not None and t > time_to.astimezone(UTC):
             continue
         out.append(r)
     return out

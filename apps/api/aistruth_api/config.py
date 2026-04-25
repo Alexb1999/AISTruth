@@ -27,6 +27,17 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AISTRUTH_CORS_ORIGINS"),
         description="Comma-separated origins for CORS (dev Next.js).",
     )
+    api_keys: str = Field(
+        default="",
+        validation_alias=AliasChoices("AISTRUTH_API_KEYS"),
+        description="Comma-separated API keys allowed to call /v1 routes. Empty disables auth.",
+    )
+    track_cache_ttl_seconds: int = Field(
+        default=30,
+        ge=0,
+        validation_alias=AliasChoices("AISTRUTH_TRACK_CACHE_TTL"),
+        description="In-process TTL for BarentsWatch track fetches. Set 0 to disable.",
+    )
     geodnet_ntrip_user: str | None = Field(
         default=None,
         validation_alias=AliasChoices("GEODNET_NTRIP_USER"),

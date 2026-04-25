@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from aistruth_core.ais_adapter import AisPositionReport
 from aistruth_core.track_heuristics import (
@@ -15,7 +15,7 @@ def test_haversine_one_degree_latitude() -> None:
 
 
 def test_implied_speed_two_points() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     a = AisPositionReport(123, base, 0.0, 0.0)
     b = AisPositionReport(123, base + timedelta(hours=1), 1.0, 0.0)
     spd = implied_speed_knots(a, b)
@@ -24,7 +24,7 @@ def test_implied_speed_two_points() -> None:
 
 
 def test_analyze_flags_high_speed() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     r0 = AisPositionReport(1, base, 0.0, 0.0)
     r1 = AisPositionReport(1, base + timedelta(minutes=1), 2.0, 0.0)  # huge implied speed
     res = analyze_track_motion([r0, r1])
@@ -34,7 +34,7 @@ def test_analyze_flags_high_speed() -> None:
 
 
 def test_filter_window() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     reps = [
         AisPositionReport(1, base, 0, 0),
         AisPositionReport(1, base + timedelta(hours=2), 1, 1),

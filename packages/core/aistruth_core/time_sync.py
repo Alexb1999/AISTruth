@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class PositionSample:
 def _ensure_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         raise ValueError("target_t must be timezone-aware (use UTC).")
-    return dt.astimezone(timezone.utc)
+    return dt.astimezone(UTC)
 
 
 def interpolate_position_at(

@@ -126,7 +126,7 @@ async def run_ntrip_probe(
                 await gga_task
     finally:
         writer.close()
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(OSError, TimeoutError):
             await writer.wait_closed()
 
     frames, counts = summarize_rtcm3_stream(buf)

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -10,7 +10,7 @@ def _t(base: datetime, seconds: float) -> datetime:
 
 
 def test_interpolate_midpoint() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     s0 = PositionSample(base, 44.65, -63.58)
     s1 = PositionSample(_t(base, 60), 44.66, -63.57)
     lat, lon, method = interpolate_position_at([s0, s1], _t(base, 30))
@@ -20,7 +20,7 @@ def test_interpolate_midpoint() -> None:
 
 
 def test_exact_sample() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     s0 = PositionSample(base, 1.0, 2.0)
     s1 = PositionSample(_t(base, 10), 3.0, 4.0)
     lat, lon, method = interpolate_position_at([s0, s1], base)
@@ -29,7 +29,7 @@ def test_exact_sample() -> None:
 
 
 def test_out_of_range_raises() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     samples = [PositionSample(base, 0, 0), PositionSample(_t(base, 10), 1, 1)]
     with pytest.raises(ValueError):
         interpolate_position_at(samples, _t(base, -1))
@@ -38,7 +38,7 @@ def test_out_of_range_raises() -> None:
 
 
 def test_naive_datetime_rejected() -> None:
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     samples = [PositionSample(base, 0, 0), PositionSample(_t(base, 10), 1, 1)]
     naive = datetime(2025, 1, 1, 12, 0, 5)
     with pytest.raises(ValueError, match="timezone-aware"):

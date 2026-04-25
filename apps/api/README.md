@@ -25,3 +25,14 @@ Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for OpenAPI.
 Without `DATABASE_URL`, `/v1/nearest-node` returns 503; `/health` and `/v1/demo/time-align` still work.
 
 **Norwegian open AIS (BarentsWatch):** set `BARENTSWATCH_CLIENT_ID` and `BARENTSWATCH_CLIENT_SECRET`, then use `GET /v1/ais/norway/track/{mmsi}` or `GET /v1/ais/norway/latest?mmsi=…`. See [docs/integrations/barentswatch-ais.md](../../docs/integrations/barentswatch-ais.md).
+
+## API key auth
+
+Set `AISTRUTH_API_KEYS` to a comma-separated allow-list before exposing `/v1/*` routes outside local development:
+
+```bash
+export AISTRUTH_API_KEYS="dev-key-1,staging-key-2"
+curl -H "X-AIS-Key: dev-key-1" http://127.0.0.1:8000/v1/validate/257000000
+```
+
+If `AISTRUTH_API_KEYS` is empty, auth is disabled for local development. `/health` is always public.
