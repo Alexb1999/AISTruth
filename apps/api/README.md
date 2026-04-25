@@ -14,6 +14,15 @@ docker compose up -d
 export DATABASE_URL=postgresql://aistruth:aistruth@localhost:5432/aistruth
 ```
 
+Apply migrations for staging/production-like databases:
+
+```bash
+cd apps/api
+DATABASE_URL=postgresql://aistruth:aistruth@localhost:5432/aistruth alembic upgrade head
+```
+
+`docker/init-db` remains a local bootstrap convenience; Alembic is the schema source of truth for `stg` and `prod`.
+
 Start the API:
 
 ```bash

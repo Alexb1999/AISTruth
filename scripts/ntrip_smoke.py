@@ -99,7 +99,11 @@ async def _async_main(*, seconds: float) -> int:
     print(res.first_header_line)
     print("--- Summary ---")
     print(f"ok={res.ok} bytes_total={res.bytes_total} tcp_chunks={res.tcp_chunks}")
-    print(f"rtcm_frame_count={res.rtcm_frame_count} rtcm_message_counts={res.rtcm_message_counts}")
+    print(
+        f"rtcm_frame_count={res.rtcm_frame_count} "
+        f"rtcm_invalid_frame_count={res.rtcm_invalid_frame_count} "
+        f"rtcm_message_counts={res.rtcm_message_counts}"
+    )
     if res.error:
         print(f"error={res.error}", file=sys.stderr)
     return 0 if res.ok else 1

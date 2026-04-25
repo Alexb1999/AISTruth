@@ -34,7 +34,10 @@ async def test_demo_time_align(client: AsyncClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {"lat": 5.0, "lon": 5.0, "method": "linear_latlon"}
+    payload = response.json()
+    assert payload["method"] == "slerp_great_circle"
+    assert payload["lat"] == pytest.approx(5.019000697861147)
+    assert payload["lon"] == pytest.approx(4.961631226702507)
 
 
 @pytest.mark.asyncio

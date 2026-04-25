@@ -9,6 +9,7 @@ description = "FastAPI service for AISTruth validation and demos"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.18",
     "aistruth-core",
     "async-lru>=2.3",
     "asyncpg>=0.29",

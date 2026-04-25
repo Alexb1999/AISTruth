@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -50,8 +53,26 @@ class NtripProbeSummary(BaseModel):
     http_status: str | None = None
     bytes_total: int | None = None
     rtcm_frame_count: int | None = None
+    rtcm_invalid_frame_count: int | None = None
     rtcm_message_counts: dict[int, int] | None = None
     error: str | None = None
+
+
+class SpoofingFindingSchema(BaseModel):
+    kind: str
+    severity: str
+    evidence: dict[str, Any]
+
+
+class FusionResultSchema(BaseModel):
+    ok: bool
+    method: str
+    refined_lat: float | None = None
+    refined_lon: float | None = None
+    baseline_m: float | None = None
+    correction_age_s: float | None = None
+    pdop: float | None = None
+    status: str
 
 
 class ValidateEvidence(BaseModel):
@@ -62,6 +83,8 @@ class ValidateEvidence(BaseModel):
     baseline_m: float | None = None
     max_implied_speed_knots: float | None = None
     time_align_method: str
+    spoofing_findings: list[SpoofingFindingSchema] = Field(default_factory=list)
+    fusion_result: FusionResultSchema | None = None
     geodnet_ntrip_probe: NtripProbeSummary | dict[str, object] | None = None
 
 
@@ -71,3 +94,13 @@ class ValidateResponse(BaseModel):
     confidence_score: int
     flags: list[str]
     evidence: ValidateEvidence
+
+
+class ValidationRunRecord(BaseModel):
+    id: str
+    mmsi: int
+    requested_at: datetime
+    window: ValidateWindow
+    confidence_score: int
+    flags: list[str]
+    evidence: dict[str, Any]

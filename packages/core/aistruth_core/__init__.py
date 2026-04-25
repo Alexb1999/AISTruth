@@ -5,7 +5,9 @@ from aistruth_core.barentswatch import (
     parse_msgtime,
     reports_from_track_rows,
 )
-from aistruth_core.time_sync import PositionSample, interpolate_position_at
+from aistruth_core.fusion import RtkFusionEngine, RtkFusionResult
+from aistruth_core.spoofing import SpoofingFinding, analyze_spoofing
+from aistruth_core.time_sync import ExtrapolationError, PositionSample, interpolate_position_at
 from aistruth_core.track_heuristics import (
     analyze_track_motion,
     filter_reports_by_window,
@@ -14,7 +16,12 @@ from aistruth_core.track_heuristics import (
 
 __all__ = [
     "PositionSample",
+    "ExtrapolationError",
+    "RtkFusionEngine",
+    "RtkFusionResult",
+    "SpoofingFinding",
     "ais_position_from_combined_row",
+    "analyze_spoofing",
     "analyze_track_motion",
     "filter_reports_by_window",
     "haversine_nm",

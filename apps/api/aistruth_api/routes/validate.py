@@ -2,26 +2,49 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
+import asyncpg
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import TypeAdapter
 
 from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
 from aistruth_api.rate_limit import limiter
-from aistruth_api.schemas import ValidateEvidence, ValidateResponse, ValidateWindow
+from aistruth_api.schemas import (
+    ValidateEvidence,
+    ValidateResponse,
+    ValidateWindow,
+    ValidationRunRecord,
+)
 from aistruth_core.barentswatch import reports_from_track_rows
+from aistruth_core.fusion import RtkFusionEngine
 from aistruth_core.nmea_gga import build_gpgga
 from aistruth_core.ntrip_probe import run_ntrip_probe
+from aistruth_core.scoring import RULES_VERSION
+from aistruth_core.spoofing import analyze_spoofing
 from aistruth_core.track_heuristics import analyze_track_motion, filter_reports_by_window
 
 router = APIRouter(tags=["validate"])
 log = logging.getLogger(__name__)
+history_adapter = TypeAdapter(list[ValidationRunRecord])
+
+
+def _jsonb_to_dict(value: object) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        decoded = json.loads(value)
+        if isinstance(decoded, dict):
+            return decoded
+    return {}
 
 
 def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
@@ -38,6 +61,46 @@ def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
     return cid, sec
 
 
+async def _persist_validation_run(
+    request: Request,
+    response: ValidateResponse,
+) -> None:
+    pool = getattr(request.app.state, "db_pool", None)
+    if pool is None:
+        return
+    run_id = uuid4()
+    evidence = response.evidence.model_dump(mode="json")
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute(
+                """
+                INSERT INTO validation_runs (
+                    id,
+                    mmsi,
+                    window_from,
+                    window_to,
+                    confidence_score,
+                    flags,
+                    evidence,
+                    rules_version,
+                    nearest_node_id
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
+                """,
+                run_id,
+                response.mmsi,
+                datetime.fromisoformat(response.window.from_),
+                datetime.fromisoformat(response.window.to),
+                response.confidence_score,
+                response.flags,
+                response.evidence.model_dump_json(),
+                str(evidence.get("rules_version") or RULES_VERSION),
+                response.evidence.nearest_node_id,
+            )
+        except asyncpg.UndefinedTableError:
+            log.warning("validation_runs table missing; run Alembic migrations")
+
+
 @router.get("/validate/{mmsi}", response_model=ValidateResponse)
 @limiter.limit("30/minute")
 async def validate_mmsi(
@@ -51,6 +114,10 @@ async def validate_mmsi(
             "If true, run a short GEODNET NTRIP probe; adds latency and uses the "
             "last AIS fix for GGA."
         ),
+    ),
+    fusion: bool = Query(
+        default=False,
+        description="If true, attach rtk_v1 fusion evidence from a short correction probe.",
     ),
     geodnet_probe_seconds: float = Query(
         default=4.0,
@@ -96,6 +163,7 @@ async def validate_mmsi(
         raise HTTPException(status_code=404, detail="No AIS points in requested time window")
 
     motion = analyze_track_motion(filtered)
+    spoofing_findings = analyze_spoofing(filtered)
     last = max(filtered, key=lambda r: r.t)
 
     nearest_id: str | None = None
@@ -128,14 +196,15 @@ async def validate_mmsi(
     evidence: dict[str, Any] = {
         "track_points": len(filtered),
         "source": "barentswatch_historic_track_last_24h",
-        "rules_version": "0.1.0-alpha",
+        "rules_version": RULES_VERSION,
         "nearest_node_id": nearest_id,
         "baseline_m": baseline_m,
         "max_implied_speed_knots": motion.max_implied_speed_knots,
-        "time_align_method": "none_track_uses_native_msgtime",
+        "time_align_method": "slerp_v1",
+        "spoofing_findings": [finding.to_dict() for finding in spoofing_findings],
     }
 
-    if geodnet_probe:
+    if geodnet_probe or fusion:
         gu = settings.geodnet_ntrip_user
         gp = settings.geodnet_ntrip_password
         if not gu or not gp:
@@ -169,6 +238,19 @@ async def validate_mmsi(
                 gga_lon=plon,
             )
             evidence["geodnet_ntrip_probe"] = asdict(probe)
+            if fusion:
+                evidence["time_align_method"] = "rtk_v1"
+                received_at = datetime.now(UTC) if probe.bytes_total > 0 else None
+                evidence["fusion_result"] = (
+                    RtkFusionEngine()
+                    .build_result(
+                        latest_ais_lat=plat,
+                        latest_ais_lon=plon,
+                        baseline_m=baseline_m,
+                        correction_received_at=received_at,
+                    )
+                    .to_dict()
+                )
             log.info(
                 "validate geodnet_probe mmsi=%s ok=%s bytes=%s frames=%s",
                 mmsi,
@@ -180,10 +262,56 @@ async def validate_mmsi(
             evidence["geodnet_ntrip_probe"] = {"ok": False, "error": repr(e)}
             log.warning("validate geodnet_probe failed mmsi=%s err=%s", mmsi, e)
 
-    return ValidateResponse(
+    response = ValidateResponse(
         mmsi=mmsi,
         window=ValidateWindow.model_validate({"from": window_start, "to": window_end}),
         confidence_score=motion.confidence_score,
         flags=motion.flags,
         evidence=ValidateEvidence(**evidence),
     )
+    await _persist_validation_run(request, response)
+    return response
+
+
+@router.get("/validate/{mmsi}/history", response_model=list[ValidationRunRecord])
+async def validation_history(
+    request: Request,
+    mmsi: int,
+    limit: int = Query(default=20, ge=1, le=100),
+) -> list[ValidationRunRecord]:
+    pool = getattr(request.app.state, "db_pool", None)
+    if pool is None:
+        raise HTTPException(status_code=503, detail="DATABASE_URL not set or pool unavailable")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT
+                id::text,
+                mmsi,
+                requested_at,
+                window_from,
+                window_to,
+                confidence_score,
+                flags,
+                evidence
+            FROM validation_runs
+            WHERE mmsi = $1
+            ORDER BY requested_at DESC
+            LIMIT $2
+            """,
+            mmsi,
+            limit,
+        )
+    records = [
+        {
+            "id": row["id"],
+            "mmsi": row["mmsi"],
+            "requested_at": row["requested_at"],
+            "window": {"from": row["window_from"].isoformat(), "to": row["window_to"].isoformat()},
+            "confidence_score": row["confidence_score"],
+            "flags": list(row["flags"]),
+            "evidence": _jsonb_to_dict(row["evidence"]),
+        }
+        for row in rows
+    ]
+    return history_adapter.validate_python(records)

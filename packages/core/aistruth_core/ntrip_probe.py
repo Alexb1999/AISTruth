@@ -23,6 +23,7 @@ class NtripProbeResult:
     bytes_total: int
     tcp_chunks: int
     rtcm_frame_count: int
+    rtcm_invalid_frame_count: int
     rtcm_message_counts: dict[str, int]
     gga_lat: float
     gga_lon: float
@@ -76,6 +77,7 @@ async def run_ntrip_probe(
             bytes_total=0,
             tcp_chunks=0,
             rtcm_frame_count=0,
+            rtcm_invalid_frame_count=0,
             rtcm_message_counts={},
             gga_lat=gga_lat,
             gga_lon=gga_lon,
@@ -129,7 +131,7 @@ async def run_ntrip_probe(
         with contextlib.suppress(OSError, TimeoutError):
             await writer.wait_closed()
 
-    frames, counts = summarize_rtcm3_stream(buf)
+    frames, invalid_frames, counts = summarize_rtcm3_stream(buf)
     counts_out = {str(k): int(v) for k, v in counts.items()}
     dur = time.perf_counter() - t0
     ok = bool(first_line and ("200" in first_line)) and total > 0
@@ -150,6 +152,7 @@ async def run_ntrip_probe(
         bytes_total=total,
         tcp_chunks=chunks,
         rtcm_frame_count=frames,
+        rtcm_invalid_frame_count=invalid_frames,
         rtcm_message_counts=counts_out,
         gga_lat=gga_lat,
         gga_lon=gga_lon,

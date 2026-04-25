@@ -1,15 +1,19 @@
-"""Gap 1 prototype: align AIS track samples to a correction epoch (linear interpolation).
+"""Gap 1 prototype: align AIS track samples to a correction epoch.
 
-MVP uses geodetic lat/lon linear interpolation between bracketing samples. Documented
-limitation: short baselines are acceptable; for long baselines or high dynamics, swap
-for great-circle / Kalman propagation without changing call sites.
+MVP uses great-circle interpolation between bracketing AIS samples. For high dynamics,
+replace this with a track smoother / Kalman propagation without changing call sites.
 """
 
 from __future__ import annotations
 
+import math
 from bisect import bisect_left
 from dataclasses import dataclass
 from datetime import UTC, datetime
+
+
+class ExtrapolationError(ValueError):
+    """Raised when a requested epoch is outside the available track window."""
 
 
 @dataclass(frozen=True)
@@ -31,17 +35,69 @@ def _ensure_utc(dt: datetime) -> datetime:
     return dt.astimezone(UTC)
 
 
+def _normalize_lon(lon: float) -> float:
+    normalized = ((lon + 180.0) % 360.0) - 180.0
+    if normalized == -180.0 and lon > 0:
+        return 180.0
+    return normalized
+
+
+def _to_unit_vector(lat: float, lon: float) -> tuple[float, float, float]:
+    phi = math.radians(lat)
+    lam = math.radians(lon)
+    cos_phi = math.cos(phi)
+    return (
+        cos_phi * math.cos(lam),
+        cos_phi * math.sin(lam),
+        math.sin(phi),
+    )
+
+
+def _from_unit_vector(vec: tuple[float, float, float]) -> tuple[float, float]:
+    x, y, z = vec
+    hyp = math.hypot(x, y)
+    lat = math.degrees(math.atan2(z, hyp))
+    lon = math.degrees(math.atan2(y, x))
+    return lat, _normalize_lon(lon)
+
+
+def _slerp_latlon(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    alpha: float,
+) -> tuple[float, float]:
+    v0 = _to_unit_vector(*start)
+    v1 = _to_unit_vector(*end)
+    dot = max(-1.0, min(1.0, sum(a * b for a, b in zip(v0, v1, strict=True))))
+    omega = math.acos(dot)
+    if omega < 1e-12:
+        lat = start[0] + alpha * (end[0] - start[0])
+        lon = start[1] + alpha * (_normalize_lon(end[1] - start[1]))
+        return lat, _normalize_lon(lon)
+    sin_omega = math.sin(omega)
+    scale0 = math.sin((1.0 - alpha) * omega) / sin_omega
+    scale1 = math.sin(alpha * omega) / sin_omega
+    vec = (
+        scale0 * v0[0] + scale1 * v1[0],
+        scale0 * v0[1] + scale1 * v1[1],
+        scale0 * v0[2] + scale1 * v1[2],
+    )
+    norm = math.sqrt(sum(component * component for component in vec))
+    unit_vec = (vec[0] / norm, vec[1] / norm, vec[2] / norm)
+    return _from_unit_vector(unit_vec)
+
+
 def interpolate_position_at(
     samples: list[PositionSample],
     target_t: datetime,
 ) -> tuple[float, float, str]:
-    """Return (lat, lon, method) at ``target_t`` using linear interpolation on lat/lon.
+    """Return (lat, lon, method) at ``target_t`` using great-circle interpolation.
 
     * If ``target_t`` equals a sample time, returns that sample.
-    * If ``target_t`` is before the first or after the last sample, raises ``ValueError``.
+    * If ``target_t`` is before the first or after the last sample, raises ``ExtrapolationError``.
     * Requires at least two samples and strictly non-decreasing times.
 
-    Returns a ``method`` string for explainability (e.g. ``linear_latlon``).
+    Returns a ``method`` string for explainability (e.g. ``slerp_great_circle``).
     """
     if len(samples) < 2:
         raise ValueError("Need at least two samples for interpolation.")
@@ -52,7 +108,7 @@ def interpolate_position_at(
             raise ValueError("samples must be ordered by non-decreasing t.")
 
     if target_t < times[0] or target_t > times[-1]:
-        raise ValueError("target_t must lie within [first_sample.t, last_sample.t].")
+        raise ExtrapolationError("target_t must lie within [first_sample.t, last_sample.t].")
 
     idx = bisect_left(times, target_t)
     if idx == 0 and times[0] == target_t:
@@ -68,6 +124,5 @@ def interpolate_position_at(
     if t1 == t0:
         raise ValueError("Duplicate timestamps in consecutive samples.")
     alpha = (target_t - t0).total_seconds() / (t1 - t0).total_seconds()
-    lat = lo.lat + alpha * (hi.lat - lo.lat)
-    lon = lo.lon + alpha * (hi.lon - lo.lon)
-    return (lat, lon, "linear_latlon")
+    lat, lon = _slerp_latlon((lo.lat, lo.lon), (hi.lat, hi.lon), alpha)
+    return (lat, lon, "slerp_great_circle")
