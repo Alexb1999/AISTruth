@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 import asyncpg
 from fastapi import Depends, FastAPI
@@ -14,23 +15,42 @@ from starlette.types import ExceptionHandler
 
 from aistruth_api.config import get_settings
 from aistruth_api.integrations import barentswatch_client
+from aistruth_api.integrations.geodnet_station_sync import sync_geodnet_stations_from_settings
 from aistruth_api.logging import configure_logging, request_id_middleware
 from aistruth_api.rate_limit import limiter
-from aistruth_api.routes import debug_geodnet, demo, health, nearest, norway_ais, validate
+from aistruth_api.routes import (
+    debug_geodnet,
+    demo,
+    geodnet_sync,
+    health,
+    nearest,
+    norway_ais,
+    validate,
+)
 from aistruth_api.security import require_api_key
 
-if TYPE_CHECKING:
-    from asyncpg import Pool
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
-    pool: Pool | None = None
+    pool: asyncpg.Pool | None = None
     if settings.database_url:
         pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=5)
     app.state.db_pool = pool
     app.state.ais_source = settings.ais_source
+    if (
+        pool is not None
+        and settings.geodnet_sync_stations_at_startup
+        and settings.geodnet_rtk_app_id
+        and settings.geodnet_rtk_app_key
+    ):
+        try:
+            n = await sync_geodnet_stations_from_settings(pool, settings)
+            log.info("GEODNET station sync at startup upserted=%s", n)
+        except Exception as exc:  # pragma: no cover - best-effort startup hook
+            log.warning("GEODNET station sync at startup failed: %s", exc)
     yield
     if pool is not None:
         await pool.close()
@@ -63,6 +83,7 @@ def create_app() -> FastAPI:
     app.include_router(nearest.router, prefix="/v1", dependencies=protected)
     app.include_router(norway_ais.router, prefix="/v1", dependencies=protected)
     app.include_router(validate.router, prefix="/v1", dependencies=protected)
+    app.include_router(geodnet_sync.router, prefix="/v1", dependencies=protected)
     if settings.enable_geodnet_debug_routes:
         app.include_router(debug_geodnet.router, prefix="/v1", dependencies=protected)
     return app

@@ -39,7 +39,7 @@ curl -sS "https://historic.ais.barentswatch.no/v1/historic/trackslast24hours/257
 
 Empty array `[]` can mean **no positions in the last 24h** for that MMSI in their open dataset (not necessarily a broken integration). A **404** from the upstream API often means **no track** for that vessel in the window.
 
-9. **AISTruth routes:** With the same env vars on the API process, call `GET http://127.0.0.1:8000/v1/ais/norway/track/257111020` (or your MMSI) and `GET /docs` for OpenAPI.
+9. **AISTruth routes:** With the same env vars on the API process, call `GET http://127.0.0.1:8000/v1/ais/norway/track/257111020` (or your MMSI), `GET /v1/ais/norway/vessels` for a **pick list of live MMSIs** (no MarineTraffic), and `GET /docs` for OpenAPI.
 
 ### Client ID shape (what My clients shows)
 

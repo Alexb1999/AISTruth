@@ -1,3 +1,11 @@
+export type NorwayVesselSnippet = {
+  mmsi: number;
+  lat: number;
+  lon: number;
+  time: string;
+  name?: string | null;
+};
+
 export type MapTrackPoint = {
   lat: number;
   lon: number;

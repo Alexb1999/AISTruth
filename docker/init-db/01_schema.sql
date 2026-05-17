@@ -4,7 +4,10 @@ CREATE TABLE geodnet_nodes (
     id text PRIMARY KEY,
     name text NOT NULL,
     active boolean NOT NULL DEFAULT true,
-    geom geography (POINT, 4326) NOT NULL
+    geom geography (POINT, 4326) NOT NULL,
+    ingest_source text NOT NULL DEFAULT 'fixture',
+    station_status text NULL,
+    synced_at timestamptz NULL
 );
 
 CREATE INDEX geodnet_nodes_gix ON geodnet_nodes USING gist (geom);

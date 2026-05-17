@@ -28,11 +28,27 @@ class NearestNodeResponse(BaseModel):
     query: QueryPoint
 
 
+class GeodnetSyncResponse(BaseModel):
+    """Result of ``POST /v1/geodnet/sync-stations``."""
+
+    upserted: int
+
+
 class NorwayPoint(BaseModel):
     mmsi: int
     time: str
     lat: float
     lon: float
+
+
+class NorwayVesselSnippet(BaseModel):
+    """One vessel from GET ``/v1/latest/combined`` (for picking an MMSI without MarineTraffic)."""
+
+    mmsi: int
+    lat: float
+    lon: float
+    time: str
+    name: str | None = None
 
 
 class ValidateWindow(BaseModel):

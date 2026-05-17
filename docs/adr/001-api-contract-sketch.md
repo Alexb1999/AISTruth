@@ -29,6 +29,8 @@ External clients need a stable contract for track validation and explainability 
 - `GET /v1/validate/{mmsi}/history` returns persisted validation runs when `DATABASE_URL` is configured.
 - `POST /v1/demo/time-align` exercises the slerp time-alignment path.
 - `GET /v1/nearest-node` exercises PostGIS nearest-node lookup.
+- `POST /v1/geodnet/sync-stations` ingests RTK REST ``/api/v3/station/list`` into ``geodnet_nodes`` when enterprise ``GEODNET_RTK_APP_ID`` / ``GEODNET_RTK_APP_KEY`` are set.
+- `GET /v1/ais/norway/vessels` returns a short list of live MMSIs + names from BarentsWatch (for the dashboard picker; no MarineTraffic).
 - `GET /v1/debug/geodnet-ntrip` is dev-only and gated by `AISTRUTH_ENABLE_GEODNET_DEBUG`.
 
 ## Consequences

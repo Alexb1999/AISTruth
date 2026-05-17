@@ -72,6 +72,24 @@ class BarentsWatchClient:
         stop=stop_after_attempt(3),
         reraise=True,
     )
+    async def fetch_latest_all_combined(self, token: str) -> list[dict[str, Any]]:
+        """GET latest AIS snapshot for all vessels (open-data feed; can be many rows)."""
+        response = await self._client.get(
+            LIVE_LATEST,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, list):
+            raise RuntimeError(f"Unexpected latest/combined payload type: {type(data)}")
+        return [row for row in data if isinstance(row, dict)]
+
+    @retry(
+        retry=retry_if_exception_type(httpx.HTTPError),
+        wait=wait_exponential(multiplier=0.25, min=0.25, max=2.0),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     async def fetch_latest_positions(
         self,
         token: str,
@@ -137,6 +155,11 @@ async def close_default_client() -> None:
 
 async def fetch_access_token(client_id: str, client_secret: str) -> str:
     return await _default_client.fetch_access_token(client_id, client_secret)
+
+
+async def fetch_latest_all_combined(token: str) -> list[dict[str, Any]]:
+    """GET combined latest positions for all vessels (BarentsWatch open AIS)."""
+    return await _default_client.fetch_latest_all_combined(token)
 
 
 async def fetch_latest_positions(token: str, mmsi_list: list[int]) -> list[dict[str, Any]]:

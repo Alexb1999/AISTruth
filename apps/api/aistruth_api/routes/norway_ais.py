@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
-from aistruth_api.schemas import NorwayPoint
+from aistruth_api.rate_limit import limiter
+from aistruth_api.schemas import NorwayPoint, NorwayVesselSnippet
 from aistruth_core.barentswatch import ais_position_from_combined_row, reports_from_track_rows
 
 router = APIRouter(tags=["ais-norway"])
@@ -26,6 +27,63 @@ def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
             ),
         )
     return cid, sec
+
+
+def _snippet_from_latest_row(row: dict) -> NorwayVesselSnippet | None:
+    try:
+        r = ais_position_from_combined_row(row)
+    except ValueError:
+        return None
+    raw_name = row.get("name")
+    name: str | None = (
+        None if raw_name is None or raw_name == "" else (str(raw_name).strip() or None)
+    )
+    return NorwayVesselSnippet(
+        mmsi=r.mmsi,
+        lat=r.lat,
+        lon=r.lon,
+        time=r.t.isoformat(),
+        name=name,
+    )
+
+
+@router.get("/ais/norway/vessels", response_model=list[NorwayVesselSnippet])
+@limiter.limit("20/minute")
+async def norway_latest_vessel_pick_list(
+    request: Request,
+    limit: int = Query(
+        default=40,
+        ge=1,
+        le=200,
+        description="Max vessels to return (subset of live feed).",
+    ),
+    settings: Settings = Depends(get_settings),
+) -> list[NorwayVesselSnippet]:
+    """Return recent vessels from BarentsWatch **GET** ``/v1/latest/combined`` for MMSI picking.
+
+    Validation only needs an MMSI; this avoids manually looking up IDs. Upstream returns
+    thousands of rows — we return the first ``limit`` successfully parsed rows.
+    """
+    cid, sec = _require_barentswatch_credentials(settings)
+    try:
+        token = await barentswatch_client.fetch_access_token(cid, sec)
+        rows = await barentswatch_client.fetch_latest_all_combined(token)
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Upstream AIS error: {e.response.status_code}",
+        ) from e
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail="Upstream AIS request failed") from e
+
+    out: list[NorwayVesselSnippet] = []
+    for row in rows:
+        if len(out) >= limit:
+            break
+        snip = _snippet_from_latest_row(row)
+        if snip is not None:
+            out.append(snip)
+    return out
 
 
 @router.get("/ais/norway/track/{mmsi}", response_model=list[NorwayPoint])

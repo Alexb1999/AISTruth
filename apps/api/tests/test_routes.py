@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from aistruth_api.config import Settings, get_settings
+from aistruth_api.integrations import barentswatch_client
 from aistruth_api.main import create_app
 
 
@@ -50,6 +51,47 @@ async def test_validate_missing_creds_503(app: FastAPI, client: AsyncClient) -> 
 
     assert response.status_code == 503
     assert "BarentsWatch is not configured" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_norway_vessels_returns_snippets(
+    app: FastAPI,
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BARENTSWATCH_CLIENT_ID", "test-id")
+    monkeypatch.setenv("BARENTSWATCH_CLIENT_SECRET", "test-secret")
+    get_settings.cache_clear()
+
+    async def fake_token(cid: str, sec: str) -> str:
+        return "t"
+
+    async def fake_all(token: str) -> list[dict]:
+        return [
+            {
+                "mmsi": 259139000,
+                "latitude": 63.0,
+                "longitude": 9.5,
+                "msgtime": "2026-01-01T12:00:00+00:00",
+                "name": "NORDLYS",
+            }
+        ]
+
+    monkeypatch.setattr(barentswatch_client, "fetch_access_token", fake_token)
+    monkeypatch.setattr(barentswatch_client, "fetch_latest_all_combined", fake_all)
+
+    response = await client.get("/v1/ais/norway/vessels?limit=5")
+    get_settings.cache_clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["mmsi"] == 259139000
+    assert payload[0]["name"] == "NORDLYS"
+
+    response = await client.post("/v1/geodnet/sync-stations")
+    assert response.status_code == 503
+    assert "DATABASE_URL" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

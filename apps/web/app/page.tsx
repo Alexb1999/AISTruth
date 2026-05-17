@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { ValidateResponse } from "./types";
+import type { NorwayVesselSnippet, ValidateResponse } from "./types";
 
 const TrackMap = dynamic(() => import("./_components/TrackMap"), { ssr: false });
 
@@ -18,6 +18,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ValidateResponse | null>(null);
+  const [vesselPick, setVesselPick] = useState<NorwayVesselSnippet[]>([]);
+  const [vesselsLoading, setVesselsLoading] = useState(false);
+  const [vesselsError, setVesselsError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -31,6 +34,26 @@ export default function Home() {
       localStorage.removeItem("aistruth_api_key");
     }
   }, [apiKey]);
+
+  async function loadNorwayVesselSuggestions() {
+    setVesselsLoading(true);
+    setVesselsError(null);
+    try {
+      const res = await fetch(`${apiBase}/v1/ais/norway/vessels?limit=60`, {
+        headers: apiKey ? { "X-AIS-Key": apiKey } : undefined,
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(`${res.status} ${text}`);
+      }
+      setVesselPick(JSON.parse(text) as NorwayVesselSnippet[]);
+    } catch (e) {
+      setVesselsError(e instanceof Error ? e.message : String(e));
+      setVesselPick([]);
+    } finally {
+      setVesselsLoading(false);
+    }
+  }
 
   async function run() {
     if (!/^\d{7,9}$/.test(mmsi.trim())) {
@@ -81,8 +104,10 @@ export default function Home() {
           <div>
             <h1 className="text-4xl font-semibold tracking-tight">Maritime integrity validation</h1>
             <p className="mt-2 max-w-3xl text-slate-300">
-              Calls <code>GET /v1/validate/&lt;mmsi&gt;</code> on <code>{apiBase}</code>. Add an API
-              key when `AISTRUTH_API_KEYS` is enabled on the FastAPI service.
+              Calls <code>GET /v1/validate/&lt;mmsi&gt;</code> on <code>{apiBase}</code>. Only the{" "}
+              <strong>MMSI</strong> is required—BarentsWatch supplies the track; you do not enter lat/lon.
+              Use <strong>Pick from Norway feed</strong> to skip MarineTraffic. Add an API key when{" "}
+              <code>AISTRUTH_API_KEYS</code> is enabled on the FastAPI service.
             </p>
           </div>
           {data ? (
@@ -106,6 +131,42 @@ export default function Home() {
                 inputMode="numeric"
               />
             </label>
+            <div className="grid gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-100 disabled:opacity-50"
+                  type="button"
+                  disabled={vesselsLoading}
+                  onClick={() => void loadNorwayVesselSuggestions()}
+                >
+                  {vesselsLoading ? "Loading vessels…" : "Pick from Norway feed"}
+                </button>
+              </div>
+              {vesselPick.length > 0 ? (
+                <label className="grid gap-1 text-sm text-slate-300">
+                  Choose vessel (live snapshot)
+                  <select
+                    className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
+                    value=""
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v) setMmsi(v);
+                    }}
+                  >
+                    <option value="">— Select —</option>
+                    {vesselPick.map((v) => (
+                      <option key={v.mmsi} value={String(v.mmsi)}>
+                        {v.mmsi}
+                        {v.name ? ` — ${v.name}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {vesselsError ? (
+                <p className="text-xs text-rose-300">{vesselsError}</p>
+              ) : null}
+            </div>
             <label className="grid gap-1 text-sm text-slate-300">
               From
               <input

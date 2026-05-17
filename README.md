@@ -19,6 +19,7 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 
 ## 📄 Documentation
 
+- [Frontend dashboard requirements](docs/frontend-dashboard-requirements.md): MVP scope, user stories, map/fusion honesty, API dependencies, future increments.
 - [Master scope & architecture](docs/AISTruth_Master_Scope.md): cloud-first SaaS blueprint, GEODNET fusion gaps, branching (`dev` / `stg` / `prod`), integration appendix (CRS, legal, API sketch link), roadmap, and monetization.
 - [ADR 001 — API contract sketch](docs/adr/001-api-contract-sketch.md): early `/v1/validate` shape and error model.
 - [BarentsWatch AIS (Phase 1 dev feed)](docs/integrations/barentswatch-ais.md): Norwegian open AIS — credentials and API routes.
@@ -34,26 +35,61 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 
 ## 💻 Local development
 
-Requires **Python 3.11+** and optionally **Docker** for PostGIS-backed routes. Using [uv](https://docs.astral.sh/uv/) avoids PEP 668 issues on managed Python installs:
+**Requirements:** Python **3.11+**, **Node 18+**, and (for nearest-node + persistence) **Docker** or any **PostgreSQL + PostGIS** with `DATABASE_URL`.
+
+### 1. Database (optional but recommended)
+
+From the **repo root**:
+
+```bash
+docker compose up -d db
+export DATABASE_URL="postgresql://aistruth:aistruth@localhost:5432/aistruth"
+```
+
+The first boot runs `docker/init-db` (demo `geodnet_nodes` + app tables). Then apply Alembic from the API package:
+
+```bash
+cd apps/api
+uv sync --all-extras
+uv run alembic upgrade head
+```
+
+### 2. API
+
+Copy `apps/api/.env.example` → `apps/api/.env` and set **BarentsWatch** credentials (required for `/v1/validate`). Keep `DATABASE_URL` if you use Postgres.
+
+From **`apps/api`**:
+
+```bash
+uv sync --all-extras
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). `/health` stays public; `/v1/*` uses `X-AIS-Key` when `AISTRUTH_API_KEYS` is non-empty.
+
+Without `DATABASE_URL`, validate still runs, but **nearest-node** and **DB persistence** are skipped (`503` on `/v1/nearest-node`).
+
+### 3. Web dashboard
+
+From **`apps/web`**:
+
+```bash
+npm install
+cp .env.example .env.local   # optional; defaults already match local API
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). The UI calls `NEXT_PUBLIC_API_URL` (default `http://127.0.0.1:8000`). Ensure the API’s `AISTRUTH_CORS_ORIGINS` includes `http://localhost:3000` (default in `.env.example`).
+
+### Older one-liner (still valid)
 
 ```bash
 uv venv .venv -p 3.11 && source .venv/bin/activate
-uv pip install -e "./packages/core[dev]" -e "./apps/api"
-pytest packages/core/tests -q
-docker compose up -d
-export DATABASE_URL=postgresql://aistruth:aistruth@localhost:5432/aistruth
-cd apps/api && uvicorn main:app --reload
+uv pip install -e "./packages/core[dev]" -e "./apps/api[dev]"
+pytest packages/core/tests apps/api/tests -q
 ```
 
-Without `DATABASE_URL`, `/health` and `POST /v1/demo/time-align` still run; `GET /v1/nearest-node` returns 503 until Postgres is up.
-
-With BarentsWatch credentials, try **`GET /v1/validate/{mmsi}`** (optional `from` / `to` ISO UTC) for **track + spoofing findings + optional nearest-node** evidence. Add `fusion=true` to attach RTK correction telemetry evidence.
-
-**GEODNET NTRIP telemetry (dev):** with `GEODNET_NTRIP_USER` / `GEODNET_NTRIP_PASSWORD` on the API, call **`GET /v1/debug/geodnet-ntrip?seconds=5`**, or **`GET /v1/validate/{mmsi}?geodnet_probe=true`** (adds latency; GGA at latest AIS fix). See [docs/integrations/geodnet-rtk.md](docs/integrations/geodnet-rtk.md).
-
-**Browser UI:** in another terminal, `cd apps/web && npm install && npm run dev`, ensure the API has `AISTRUTH_CORS_ORIGINS` including `http://localhost:3000` (default), open [http://localhost:3000](http://localhost:3000).
-
-**GEODNET NTRIP smoke (after trial creds arrive):** `python scripts/ntrip_smoke.py --seconds 20` with `GEODNET_NTRIP_USER` / `GEODNET_NTRIP_PASSWORD` set — see [docs/integrations/geodnet-rtk.md](docs/integrations/geodnet-rtk.md).
+**GEODNET NTRIP telemetry (dev):** with `GEODNET_NTRIP_USER` / `GEODNET_NTRIP_PASSWORD` on the API, call **`GET /v1/debug/geodnet-ntrip?seconds=5`** (requires `AISTRUTH_ENABLE_GEODNET_DEBUG=true`), or **`GET /v1/validate/{mmsi}?geodnet_probe=true`**. See [docs/integrations/geodnet-rtk.md](docs/integrations/geodnet-rtk.md). **Smoke script:** `python scripts/ntrip_smoke.py --seconds 20` with the same NTRIP env vars.
 
 ## 🛠 Tech Stack
 

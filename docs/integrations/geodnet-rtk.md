@@ -67,6 +67,21 @@ When the API process has the same env vars in `apps/api/.env` (or the environmen
 
 `rtcm_message_counts` keys are decimal RTCM message numbers as strings (plus `"-1"` if the 12-bit header could not be read). CRC is **not** verified; counts are health/telemetry, not legal proof of MSM content.
 
+## Station catalog sync (RTK REST API)
+
+Enterprise deployments can obtain **`appId`** and **`appKey`** from GEODNET (see `GEODNET_RTK_API.md`). With Postgres running and **`DATABASE_URL`** set:
+
+1. Run Alembic through revision **`20260517_0003`** so `geodnet_nodes` has `ingest_source`, `station_status`, and `synced_at`.
+2. Set **`GEODNET_RTK_APP_ID`** and **`GEODNET_RTK_APP_KEY`** in the API environment.
+3. Call **`POST /v1/geodnet/sync-stations`** (same auth as other `/v1/*` routes when `AISTRUTH_API_KEYS` is set).
+
+The handler calls **`POST {GEODNET_RTK_API_BASE}/api/v3/station/list`** with the vendor **MD5 sign** algorithm, then upserts rows with **`id = geodnet:<station name>`**, **`ingest_source = geodnet_rtk_api`**, and **`active`** derived from status (`ACTIVE` / `ONLINE` vs `OFFLINE`). **Fixture/demo rows** (`ingest_source='fixture'`) are never deleted by this job.
+
+Optional:
+
+- **`GEODNET_RTK_STATION_REGION`** — ISO 3166-1 alpha-3 country filter when the API supports it (e.g. `NOR`).
+- **`GEODNET_SYNC_STATIONS_AT_STARTUP=true`** — best-effort sync when the API bootstraps (logs a warning on failure).
+
 ## Product / compliance
 
 - Store **NTRIP credentials** only in env or a secret manager; never commit.

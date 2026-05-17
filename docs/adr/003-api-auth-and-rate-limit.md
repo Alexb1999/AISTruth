@@ -16,6 +16,8 @@ Validation routes call upstream AIS services and may open GEODNET NTRIP sessions
   - `GET /v1/validate/{mmsi}`: `30/minute`.
   - `POST /v1/validate/bulk`: `10/minute`.
   - `GET /v1/debug/geodnet-ntrip`: `6/minute`.
+  - `POST /v1/geodnet/sync-stations`: `12/minute`.
+  - `GET /v1/ais/norway/vessels`: `20/minute` (proxies BarentsWatch “all vessels” latest snapshot).
 - Emit `X-Request-ID` on responses and JSON logs for traceability.
 
 ## Consequences

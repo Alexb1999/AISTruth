@@ -83,6 +83,35 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AISTRUTH_ENABLE_GEODNET_DEBUG"),
         description="If true, register GET /v1/debug/geodnet-ntrip (local/dev only).",
     )
+    geodnet_rtk_app_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_RTK_APP_ID"),
+        description="Enterprise RTK REST API appId (station list / coverage).",
+    )
+    geodnet_rtk_app_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_RTK_APP_KEY"),
+        description="Enterprise RTK REST API appKey (secret; never commit).",
+    )
+    geodnet_rtk_api_base: str = Field(
+        default="https://rtk.geodnet.com",
+        validation_alias=AliasChoices("GEODNET_RTK_API_BASE"),
+        description="Base URL for GEODNET RTK REST API (no trailing slash).",
+    )
+    geodnet_rtk_station_region: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEODNET_RTK_STATION_REGION"),
+        description=(
+            "Optional ISO 3166-1 alpha-3 filter for POST /api/v3/station/list (e.g. NOR, USA)."
+        ),
+    )
+    geodnet_sync_stations_at_startup: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("GEODNET_SYNC_STATIONS_AT_STARTUP"),
+        description=(
+            "If true and RTK API credentials + DATABASE_URL are set, sync stations once at boot."
+        ),
+    )
 
 
 @lru_cache
