@@ -75,12 +75,32 @@ class FusionResultSchema(BaseModel):
     status: str
 
 
+class MapTrackPoint(BaseModel):
+    """Time-ordered AIS fix for dashboard map overlays (may be downsampled)."""
+
+    lat: float
+    lon: float
+    time: str
+
+
+class NearestNodeMapInfo(BaseModel):
+    """Nearest GEODNET node used for baseline context, with map coordinates."""
+
+    id: str
+    name: str
+    lat: float
+    lon: float
+    distance_m: float
+
+
 class ValidateEvidence(BaseModel):
     track_points: int
     source: str
     rules_version: str
     nearest_node_id: str | None = None
     baseline_m: float | None = None
+    nearest_node: NearestNodeMapInfo | None = None
+    map_track_points: list[MapTrackPoint] = Field(default_factory=list)
     max_implied_speed_knots: float | None = None
     time_align_method: str
     spoofing_findings: list[SpoofingFindingSchema] = Field(default_factory=list)

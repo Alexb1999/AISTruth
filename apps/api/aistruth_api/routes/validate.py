@@ -27,6 +27,7 @@ from aistruth_api.schemas import (
     ValidateWindow,
     ValidationRunRecord,
 )
+from aistruth_core.ais_adapter import AisPositionReport
 from aistruth_core.barentswatch import reports_from_track_rows
 from aistruth_core.fusion import RtkFusionEngine
 from aistruth_core.nmea_gga import build_gpgga
@@ -38,6 +39,28 @@ from aistruth_core.track_heuristics import analyze_track_motion, filter_reports_
 router = APIRouter(tags=["validate"])
 log = logging.getLogger(__name__)
 history_adapter = TypeAdapter(list[ValidationRunRecord])
+
+_MAX_MAP_TRACK_POINTS = 400
+
+
+def _map_track_points_for_api(
+    reports: list[AisPositionReport],
+    max_points: int = _MAX_MAP_TRACK_POINTS,
+) -> list[dict[str, str | float]]:
+    """Return time-sorted fixes for the dashboard; downsample long tracks."""
+    if not reports:
+        return []
+    sorted_r = sorted(reports, key=lambda r: r.t)
+    n = len(sorted_r)
+    if n <= max_points:
+        return [{"lat": r.lat, "lon": r.lon, "time": r.t.isoformat()} for r in sorted_r]
+    out: list[dict[str, str | float]] = []
+    denom = max_points - 1 if max_points > 1 else 1
+    for i in range(max_points):
+        idx = min(int(i * (n - 1) // denom), n - 1)
+        r = sorted_r[idx]
+        out.append({"lat": r.lat, "lon": r.lon, "time": r.t.isoformat()})
+    return out
 
 
 def _jsonb_to_dict(value: object) -> dict[str, Any]:
@@ -207,12 +230,16 @@ async def validate_mmsi(
 
     nearest_id: str | None = None
     baseline_m: float | None = None
+    nearest_node: dict[str, Any] | None = None
     pool = getattr(request.app.state, "db_pool", None)
     if pool is not None:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
                 SELECT id,
+                       name,
+                       ST_Y(geom::geometry) AS lat,
+                       ST_X(geom::geometry) AS lon,
                        ST_Distance(
                            geom,
                            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
@@ -228,9 +255,17 @@ async def validate_mmsi(
         if row is not None:
             nearest_id = str(row["id"])
             baseline_m = float(row["dist_m"])
+            nearest_node = {
+                "id": nearest_id,
+                "name": str(row["name"]),
+                "lat": float(row["lat"]),
+                "lon": float(row["lon"]),
+                "distance_m": baseline_m,
+            }
 
     window_start = min(r.t for r in filtered).isoformat()
     window_end = max(r.t for r in filtered).isoformat()
+    map_track_points = _map_track_points_for_api(filtered)
 
     evidence: dict[str, Any] = {
         "track_points": len(filtered),
@@ -238,6 +273,8 @@ async def validate_mmsi(
         "rules_version": RULES_VERSION,
         "nearest_node_id": nearest_id,
         "baseline_m": baseline_m,
+        "nearest_node": nearest_node,
+        "map_track_points": map_track_points,
         "max_implied_speed_knots": motion.max_implied_speed_knots,
         "time_align_method": "slerp_v1",
         "spoofing_findings": [finding.to_dict() for finding in spoofing_findings],

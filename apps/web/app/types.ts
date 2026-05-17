@@ -1,3 +1,17 @@
+export type MapTrackPoint = {
+  lat: number;
+  lon: number;
+  time: string;
+};
+
+export type NearestNodeMapInfo = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  distance_m: number;
+};
+
 export type SpoofingFinding = {
   kind: string;
   severity: string;
@@ -26,6 +40,8 @@ export type ValidateResponse = {
     rules_version: string;
     nearest_node_id?: string | null;
     baseline_m?: number | null;
+    nearest_node?: NearestNodeMapInfo | null;
+    map_track_points?: MapTrackPoint[];
     max_implied_speed_knots?: number | null;
     time_align_method: string;
     spoofing_findings: SpoofingFinding[];

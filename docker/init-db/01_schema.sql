@@ -9,11 +9,17 @@ CREATE TABLE geodnet_nodes (
 
 CREATE INDEX geodnet_nodes_gix ON geodnet_nodes USING gist (geom);
 
--- Demo fixtures (Nova Scotia area); replace with live GEODNET sync later.
+-- Demo fixtures (not live GEODNET): NS for map demos, Norway for BarentsWatch dev tracks.
 INSERT INTO geodnet_nodes (id, name, geom)
 VALUES
     ('demo-halifax', 'Demo node Halifax', ST_GeogFromText('SRID=4326;POINT(-63.5752 44.6488)')),
-    ('demo-lunenburg', 'Demo node Lunenburg', ST_GeogFromText('SRID=4326;POINT(-64.3198 44.3770)'));
+    ('demo-lunenburg', 'Demo node Lunenburg', ST_GeogFromText('SRID=4326;POINT(-64.3198 44.3770)')),
+    ('demo-no-oslo', 'Demo node Oslo (NO)', ST_GeogFromText('SRID=4326;POINT(10.7522 59.9139)')),
+    ('demo-no-bergen', 'Demo node Bergen (NO)', ST_GeogFromText('SRID=4326;POINT(5.3221 60.3913)')),
+    ('demo-no-stavanger', 'Demo node Stavanger (NO)', ST_GeogFromText('SRID=4326;POINT(5.7331 58.9700)')),
+    ('demo-no-kristiansand', 'Demo node Kristiansand (NO)', ST_GeogFromText('SRID=4326;POINT(7.9956 58.1467)')),
+    ('demo-no-bodo', 'Demo node Bodø (NO)', ST_GeogFromText('SRID=4326;POINT(14.4049 67.2804)')),
+    ('demo-no-tromso', 'Demo node Tromsø (NO)', ST_GeogFromText('SRID=4326;POINT(18.9553 69.6492)'));
 
 -- Dev convenience only. Alembic is the source of truth for staging/production schemas.
 CREATE TABLE validation_runs (
