@@ -10,7 +10,7 @@ Usage:
 
 Or load a local env file (does not override variables already set in your shell):
 
-  python scripts/ntrip_smoke.py --env-file apps/api/.env --seconds 20
+  python scripts/ntrip_smoke.py --env-file backend/.env --seconds 20
 
 Optional env:
   GEODNET_NTRIP_HOST (default rtk.geodnet.com)

@@ -27,8 +27,8 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 
 ## 🏗 Project Structure
 
-- `apps/web`: Next.js 14 + Tailwind dev UI (`npm install && npm run dev`) — MMSI → `/v1/validate/{mmsi}` with map/evidence panels.
-- `apps/api`: Runnable FastAPI app (`uvicorn main:app` from this directory); OpenAPI at `/docs`.
+- `frontend/`: Next.js 14 + Tailwind — **marketing** at `/` and **dev console** at `/console` (`npm install && npm run dev` from this folder, or `npm run dev` from repo root).
+- `backend/`: Runnable FastAPI app (`uvicorn main:app` from this directory); OpenAPI at `/docs`.
 - `packages/core`: Truth-engine library (`aistruth_core`: time sync, RTCM/MSM helpers, spoofing findings, AIS adapters).
 - `docker/`: PostGIS fixture schema for nearest-node demos and validation persistence.
 - `hardware` (optional/future): Notes for any proprietary ground station; not required for the core SaaS path.
@@ -49,16 +49,16 @@ export DATABASE_URL="postgresql://aistruth:aistruth@localhost:5432/aistruth"
 The first boot runs `docker/init-db` (demo `geodnet_nodes` + app tables). Then apply Alembic from the API package:
 
 ```bash
-cd apps/api
+cd backend
 uv sync --all-extras
 uv run alembic upgrade head
 ```
 
 ### 2. API
 
-Copy `apps/api/.env.example` → `apps/api/.env` and set **BarentsWatch** credentials (required for `/v1/validate`). Keep `DATABASE_URL` if you use Postgres.
+Copy `backend/.env.example` → `backend/.env` and set **BarentsWatch** credentials (required for `/v1/validate`). Keep `DATABASE_URL` if you use Postgres.
 
-From **`apps/api`**:
+From **`backend`**:
 
 ```bash
 uv sync --all-extras
@@ -69,9 +69,9 @@ Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). `/health` stays p
 
 Without `DATABASE_URL`, validate still runs, but **nearest-node** and **DB persistence** are skipped (`503` on `/v1/nearest-node`).
 
-### 3. Web dashboard
+### 3. Web app
 
-From **`apps/web`**:
+From **`frontend`**:
 
 ```bash
 npm install
@@ -79,14 +79,14 @@ cp .env.example .env.local   # optional; defaults already match local API
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The UI calls `NEXT_PUBLIC_API_URL` (default `http://127.0.0.1:8000`). Ensure the API’s `AISTRUTH_CORS_ORIGINS` includes `http://localhost:3000` (default in `.env.example`).
+Open [http://localhost:3000](http://localhost:3000) for the **landing page** and [http://localhost:3000/console](http://localhost:3000/console) for **validation**. The UI calls `NEXT_PUBLIC_API_URL` (default `http://127.0.0.1:8000`). Ensure the API’s `AISTRUTH_CORS_ORIGINS` includes `http://localhost:3000` (default in `.env.example`).
 
 ### Older one-liner (still valid)
 
 ```bash
 uv venv .venv -p 3.11 && source .venv/bin/activate
-uv pip install -e "./packages/core[dev]" -e "./apps/api[dev]"
-pytest packages/core/tests apps/api/tests -q
+uv pip install -e "./packages/core[dev]" -e "./backend[dev]"
+pytest packages/core/tests backend/tests -q
 ```
 
 **GEODNET NTRIP telemetry (dev):** with `GEODNET_NTRIP_USER` / `GEODNET_NTRIP_PASSWORD` on the API, call **`GET /v1/debug/geodnet-ntrip?seconds=5`** (requires `AISTRUTH_ENABLE_GEODNET_DEBUG=true`), or **`GET /v1/validate/{mmsi}?geodnet_probe=true`**. See [docs/integrations/geodnet-rtk.md](docs/integrations/geodnet-rtk.md). **Smoke script:** `python scripts/ntrip_smoke.py --seconds 20` with the same NTRIP env vars.

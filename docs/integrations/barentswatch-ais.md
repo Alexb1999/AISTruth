@@ -14,8 +14,8 @@ AISTruth uses the **Norwegian Coastal Administration** open AIS dataset exposed 
 2. **API client:** Open **MyPage** (Min side) and create an **API client** using the **client credentials** (machine-to-machine) flow — not a “public app” redirect flow unless that is what their portal offers for AIS.
 3. **Scope:** Ensure the client is allowed to request scope **`ais`** (exactly that string). If the portal lets you tick API products or scopes, enable **AIS** / **Live AIS** per their UI.
 4. **Copy secrets:** Note the **client id** and **client secret**; the secret is often shown only once.
-5. **Local env:** From the repo, copy `apps/api/.env.example` to `apps/api/.env` and set `BARENTSWATCH_CLIENT_ID` and `BARENTSWATCH_CLIENT_SECRET`.
-6. **Run API from `apps/api`:** The app loads `.env` from the current working directory (`Settings` uses `env_file=".env"`). Example: `cd apps/api && uvicorn main:app --reload`.
+5. **Local env:** From the repo, copy `backend/.env.example` to `backend/.env` and set `BARENTSWATCH_CLIENT_ID` and `BARENTSWATCH_CLIENT_SECRET`.
+6. **Run API from `backend`:** The app loads `.env` from the current working directory (`Settings` uses `env_file=".env"`). Example: `cd backend && uvicorn main:app --reload`.
 7. **Smoke-test token:**
 
 ```bash
@@ -53,7 +53,7 @@ Self‑registered BarentsWatch clients often use a **full client id** like `your
   `BARENTSWATCH_CLIENT_ID="you@example.com:AISTruth API"`  
   An unquoted line can be parsed incorrectly so the id or secret is truncated or split.
 - **`client_secret`:** Under **Client secrets**, open the **Created …** entry and copy the **secret value** the UI shows. That is what belongs in `BARENTSWATCH_CLIENT_SECRET` (it is the secret you created for that row; if you rotated secrets, use the current one).
-- **Shell vs `.env`:** `curl` does not read `.env` by itself. Either `export` both variables in the same terminal, or run `set -a && source apps/api/.env && set +a` before `curl` (zsh/bash).
+- **Shell vs `.env`:** `curl` does not read `.env` by itself. Either `export` both variables in the same terminal, or run `set -a && source backend/.env && set +a` before `curl` (zsh/bash).
 - **If it still fails**, try sending the portal’s **urlencoded** id **once**, without letting curl encode it again (so the `%` signs are not doubled):
 
 ```bash

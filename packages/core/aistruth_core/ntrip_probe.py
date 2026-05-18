@@ -30,17 +30,137 @@ class NtripProbeResult:
     error: str | None = None
 
 
-async def _read_headers(reader: asyncio.StreamReader) -> str:
+@dataclass(frozen=True)
+class _HeaderOutcome:
+    """NTRIP HTTP status + headers until blank line."""
+
+    headers_text: str | None
+    first_line: str | None
+    failure: str | None
+    preview: str | None = None
+
+
+def _fail_early(
+    *,
+    t0: float,
+    host: str,
+    port: int,
+    mount: str,
+    gga_lat: float,
+    gga_lon: float,
+    error: str,
+    first_header_line: str | None = None,
+) -> NtripProbeResult:
+    return NtripProbeResult(
+        ok=False,
+        host=host,
+        port=port,
+        mount=mount,
+        duration_s=time.perf_counter() - t0,
+        first_header_line=first_header_line,
+        bytes_total=0,
+        tcp_chunks=0,
+        rtcm_frame_count=0,
+        rtcm_invalid_frame_count=0,
+        rtcm_message_counts={},
+        gga_lat=gga_lat,
+        gga_lon=gga_lon,
+        error=error,
+    )
+
+
+async def _read_ntrip_http_headers(
+    reader: asyncio.StreamReader,
+    *,
+    overall_s: float = 60.0,
+    per_line_s: float = 25.0,
+    icy_lookahead_s: float = 3.0,
+) -> _HeaderOutcome:
+    """Read until blank line; bounded time for slow casters and firewall half-opens."""
     lines: list[str] = []
+    t_start = time.monotonic()
     while True:
-        line = await reader.readline()
-        if not line:
-            raise RuntimeError("Connection closed while reading headers")
-        text = line.decode(errors="replace").rstrip("\r\n")
+        elapsed = time.monotonic() - t_start
+        if elapsed >= overall_s:
+            preview = "\n".join(lines).strip()
+            if len(preview) > 400:
+                preview = preview[:400] + "…"
+            return _HeaderOutcome(
+                None,
+                lines[0] if lines else None,
+                f"ntrip_http_header_timeout ({overall_s:.0f}s, no blank line ending headers)",
+                preview or None,
+            )
+        budget = overall_s - elapsed
+        line_to = min(per_line_s, budget)
+        try:
+            raw = await asyncio.wait_for(reader.readline(), timeout=line_to)
+        except TimeoutError:
+            preview = "\n".join(lines).strip()
+            if len(preview) > 400:
+                preview = preview[:400] + "…"
+            return _HeaderOutcome(
+                None,
+                lines[0] if lines else None,
+                f"ntrip_header_line_stall ({per_line_s:.0f}s without a complete header line)",
+                preview or None,
+            )
+        if not raw:
+            preview = "\n".join(lines).strip()
+            if len(preview) > 400:
+                preview = preview[:400] + "…"
+            return _HeaderOutcome(
+                None,
+                lines[0] if lines else None,
+                "connection_closed_during_ntrip_headers",
+                preview or None,
+            )
+        text = raw.decode(errors="replace").rstrip("\r\n")
         lines.append(text)
         if text == "":
-            break
-    return "\n".join(lines)
+            joined = "\n".join(lines)
+            return _HeaderOutcome(joined, lines[0] if lines else None, None, None)
+
+        # NTRIP: many casters go straight to binary RTCM after the first "ICY 200 OK" line.
+        # Waiting for another readline() would block until a 0x0a appears inside RTCM (often 25s+).
+        if len(lines) == 1 and _is_ntrip_source_ok_line(text):
+            elapsed = time.monotonic() - t_start
+            budget = overall_s - elapsed
+            icy_to = min(icy_lookahead_s, budget)
+            try:
+                raw2 = await asyncio.wait_for(reader.readline(), timeout=icy_to)
+            except TimeoutError:
+                joined = "\n".join(lines)
+                return _HeaderOutcome(joined, lines[0], None, None)
+            if not raw2:
+                preview = "\n".join(lines).strip()
+                if len(preview) > 400:
+                    preview = preview[:400] + "…"
+                return _HeaderOutcome(
+                    None,
+                    lines[0] if lines else None,
+                    "connection_closed_during_ntrip_headers",
+                    preview or None,
+                )
+            text2 = raw2.decode(errors="replace").rstrip("\r\n")
+            lines.append(text2)
+            if text2 == "":
+                joined = "\n".join(lines)
+                return _HeaderOutcome(joined, lines[0], None, None)
+            continue
+
+
+def _format_header_failure(out: _HeaderOutcome) -> str:
+    msg = out.failure or "ntrip_header_unknown"
+    if out.preview:
+        return f"{msg} | received: {out.preview!r}"
+    return msg
+
+
+def _is_ntrip_source_ok_line(line: str) -> bool:
+    """True for successful NTRIP source mount responses (stream follows)."""
+    u = line.strip().upper()
+    return u.startswith("ICY 200") or (u.startswith("HTTP/") and " 200" in u)
 
 
 async def run_ntrip_probe(
@@ -64,21 +184,28 @@ async def run_ntrip_probe(
     ).encode("ascii")
 
     t0 = time.perf_counter()
+    # Casters sometimes take a long gap between HTTP 200 and first RTCM; allow longer
+    # idle reads than the collection window itself.
+    read_timeout = max(25.0, float(seconds) + 20.0)
+
     try:
         reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=30.0)
-    except OSError as e:
-        return NtripProbeResult(
-            ok=False,
+    except TimeoutError:
+        return _fail_early(
+            t0=t0,
             host=host,
             port=port,
             mount=mount,
-            duration_s=time.perf_counter() - t0,
-            first_header_line=None,
-            bytes_total=0,
-            tcp_chunks=0,
-            rtcm_frame_count=0,
-            rtcm_invalid_frame_count=0,
-            rtcm_message_counts={},
+            gga_lat=gga_lat,
+            gga_lon=gga_lon,
+            error="tcp_connect_timeout (30s)",
+        )
+    except OSError as e:
+        return _fail_early(
+            t0=t0,
+            host=host,
+            port=port,
+            mount=mount,
             gga_lat=gga_lat,
             gga_lon=gga_lon,
             error=str(e),
@@ -88,12 +215,26 @@ async def run_ntrip_probe(
     total = 0
     chunks = 0
     buf = bytearray()
+    stream_stalled_before_data = False
+
     try:
         writer.write(req)
         await writer.drain()
 
-        headers = await asyncio.wait_for(_read_headers(reader), timeout=30.0)
-        first_line = headers.splitlines()[0] if headers else None
+        h_out = await _read_ntrip_http_headers(reader)
+        if h_out.failure is not None:
+            return _fail_early(
+                t0=t0,
+                host=host,
+                port=port,
+                mount=mount,
+                gga_lat=gga_lat,
+                gga_lon=gga_lon,
+                error=_format_header_failure(h_out),
+                first_header_line=h_out.first_line,
+            )
+
+        first_line = h_out.first_line
 
         writer.write(gga_factory())
         await writer.drain()
@@ -113,7 +254,12 @@ async def run_ntrip_probe(
         deadline = time.monotonic() + seconds
         try:
             while time.monotonic() < deadline:
-                chunk = await asyncio.wait_for(reader.read(4096), timeout=10.0)
+                try:
+                    chunk = await asyncio.wait_for(reader.read(4096), timeout=read_timeout)
+                except TimeoutError:
+                    if total == 0:
+                        stream_stalled_before_data = True
+                    break
                 if not chunk:
                     break
                 chunks += 1
@@ -136,7 +282,13 @@ async def run_ntrip_probe(
     dur = time.perf_counter() - t0
     ok = bool(first_line and ("200" in first_line)) and total > 0
     err: str | None = None
-    if not ok:
+    if stream_stalled_before_data:
+        ok = False
+        err = (
+            f"no_rtcm_within_{read_timeout:.0f}s_after_gga "
+            "(caster idle, wrong mount/credentials, or network filtering)"
+        )
+    elif not ok:
         if not first_line or "200" not in first_line:
             err = "unexpected_ntrip_headers"
         elif total <= 0:

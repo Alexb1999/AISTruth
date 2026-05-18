@@ -47,10 +47,10 @@ export GEODNET_NTRIP_PASSWORD='...'
 python scripts/ntrip_smoke.py --seconds 20
 ```
 
-If you already store secrets in `apps/api/.env` (same variable names), you can load them without `export`:
+If you already store secrets in `backend/.env` (same variable names), you can load them without `export`:
 
 ```bash
-python scripts/ntrip_smoke.py --env-file apps/api/.env --seconds 20
+python scripts/ntrip_smoke.py --env-file backend/.env --seconds 20
 ```
 
 The loader **does not override** variables already present in your shell.
@@ -59,7 +59,7 @@ The script prints header diagnostics, **total bytes read**, and how many **RTCM3
 
 ## FastAPI integration (this repo)
 
-When the API process has the same env vars in `apps/api/.env` (or the environment), you can probe from HTTP:
+When the API process has the same env vars in `backend/.env` (or the environment), you can probe from HTTP:
 
 - **`GET /v1/debug/geodnet-ntrip?seconds=5`** — short NTRIP session using **`GEODNET_SMOKE_LAT` / `GEODNET_SMOKE_LON`** (defaults: Oslofjord entrance); returns JSON telemetry (`bytes_total`, `rtcm_frame_count`, `rtcm_message_counts`, etc.). Registered only when **`AISTRUTH_ENABLE_GEODNET_DEBUG=true`** on the API process. **Local/dev** only.
 
