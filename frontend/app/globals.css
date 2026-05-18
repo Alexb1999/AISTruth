@@ -11,6 +11,15 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Keep Leaflet panes inside the map card — not above the sticky header */
+.landing-map .leaflet-container,
+.landing-map .leaflet-pane,
+.landing-map .leaflet-top,
+.landing-map .leaflet-bottom,
+.landing-map .leaflet-control {
+  z-index: 1 !important;
+}
+
 code {
   @apply rounded-md bg-slate-700/80 px-1.5 py-0.5 text-[0.85em] text-cyan-200;
 }

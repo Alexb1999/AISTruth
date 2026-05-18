@@ -1,4 +1,9 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+import Logo from "@/components/Logo";
+
+const LandingMapDemo = dynamic(() => import("@/components/LandingMapDemo"), { ssr: false });
 
 const CAPABILITIES = [
   {
@@ -62,15 +67,10 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 text-xs font-bold text-white shadow-sm">
-              AT
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-slate-900">AISTruth</span>
-          </Link>
-          <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+      <header className="sticky top-0 z-[1000] border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-2 sm:px-6 sm:py-2.5">
+          <Logo href="/" size="nav" priority />
+          <nav className="hidden items-center gap-8 text-sm font-medium leading-none text-slate-600 md:flex">
             <a className="transition hover:text-slate-900" href="#capabilities">
               Product
             </a>
@@ -110,7 +110,7 @@ export default function LandingPage() {
           aria-hidden
         />
 
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-5 pb-20 pt-14 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16 lg:pb-28 lg:pt-20">
+        <div className="relative mx-auto grid max-w-6xl gap-10 px-5 pb-16 pt-8 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-12 lg:pb-20 lg:pt-10">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-700">
               <span className="h-1.5 w-1.5 rounded-full bg-teal-500" />
@@ -153,40 +153,14 @@ export default function LandingPage() {
             </dl>
           </div>
 
-          {/* Product preview card */}
-          <div className="relative lg:justify-self-end">
-            <div className="rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-300/40 ring-1 ring-slate-100">
-              <div className="rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 p-5 text-white">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Integrity score</p>
-                    <p className="mt-1 text-4xl font-bold tabular-nums text-amber-100">79</p>
-                    <p className="mt-1 text-xs text-slate-400">Motion + GEODNET · ~106 km to node</p>
-                  </div>
-                  <span className="rounded-md bg-amber-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200 ring-1 ring-amber-400/30">
-                    Review
-                  </span>
-                </div>
-                <p className="mt-4 text-sm leading-relaxed text-slate-300">
-                  Integrity checks flagged possible anomalies — review findings before relying on AIS for this leg.
-                </p>
-              </div>
-              <div className="space-y-3 p-4">
-                <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-100">
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" />
-                  <span className="text-xs text-slate-600">AIS track overlaid on coastal map</span>
-                </div>
-                <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-100">
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                  <span className="text-xs text-slate-600">Nearest GEODNET reference station</span>
-                </div>
-                <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-100">
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                  <span className="text-xs text-slate-600">Optional NTRIP correction telemetry</span>
-                </div>
-              </div>
+          {/* Live map preview */}
+          <div className="relative z-0 isolate lg:justify-self-end">
+            <div className="landing-map rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl shadow-slate-300/40 ring-1 ring-slate-100">
+              <LandingMapDemo />
             </div>
-            <p className="mt-3 text-center text-xs text-slate-500">Illustrative output from the demo console</p>
+            <p className="mt-3 text-center text-xs text-slate-500">
+              Example validation — AIS track, GEODNET correction zones, and refined leg overlay
+            </p>
           </div>
         </div>
       </section>
@@ -285,12 +259,11 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 text-sm text-slate-500 sm:flex-row sm:px-6">
-          <p>
-            <span className="font-semibold text-slate-700">AISTruth</span> · AIS integrity for shipping &amp; coastal
-            ops
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-5 sm:flex-row sm:px-6">
+          <Logo href="/" size="md" />
+          <p className="max-w-sm text-center text-xs text-slate-500 sm:text-right">
+            Pilot partnerships &amp; enterprise integrations — open source core, commercial pilots welcome.
           </p>
-          <p className="text-xs">Pilot partnerships &amp; enterprise integrations — open source core, commercial pilots welcome.</p>
         </div>
       </footer>
     </div>
