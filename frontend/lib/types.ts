@@ -1,3 +1,13 @@
+export type MeResponse = {
+  authenticated: boolean;
+  auth_mode: string;
+  tenant: {
+    slug: string;
+    name: string;
+    ais_source: string;
+  } | null;
+};
+
 export type NorwayVesselSnippet = {
   mmsi: number;
   lat: number;

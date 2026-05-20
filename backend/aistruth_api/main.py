@@ -19,10 +19,12 @@ from aistruth_api.integrations.geodnet_station_sync import sync_geodnet_stations
 from aistruth_api.logging import configure_logging, request_id_middleware
 from aistruth_api.rate_limit import limiter
 from aistruth_api.routes import (
+    admin,
     debug_geodnet,
     demo,
     geodnet_sync,
     health,
+    me,
     nearest,
     norway_ais,
     validate,
@@ -83,6 +85,8 @@ def create_app() -> FastAPI:
     app.include_router(nearest.router, prefix="/v1", dependencies=protected)
     app.include_router(norway_ais.router, prefix="/v1", dependencies=protected)
     app.include_router(validate.router, prefix="/v1", dependencies=protected)
+    app.include_router(me.router, prefix="/v1", dependencies=protected)
+    app.include_router(admin.router, prefix="/v1")
     app.include_router(geodnet_sync.router, prefix="/v1", dependencies=protected)
     if settings.enable_geodnet_debug_routes:
         app.include_router(debug_geodnet.router, prefix="/v1", dependencies=protected)

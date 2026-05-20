@@ -16,6 +16,10 @@ class FileReplayAisSource:
         self.path = Path(path)
 
     async def __aiter__(self) -> AsyncIterator[AisPositionReport]:
+        async for report in self.iter_all():
+            yield report
+
+    async def iter_all(self) -> AsyncIterator[AisPositionReport]:
         for line in self.path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
@@ -26,3 +30,11 @@ class FileReplayAisSource:
                 lat=float(row["lat"]),
                 lon=float(row["lon"]),
             )
+
+    async def fetch_reports_for_mmsi(self, mmsi: int) -> list[AisPositionReport]:
+        out: list[AisPositionReport] = []
+        async for report in self.iter_all():
+            if report.mmsi == mmsi:
+                out.append(report)
+        out.sort(key=lambda r: r.t)
+        return out

@@ -45,7 +45,12 @@ async def test_demo_time_align(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_validate_missing_creds_503(app: FastAPI, client: AsyncClient) -> None:
     def settings_without_barentswatch() -> Settings:
-        return Settings(barentswatch_client_id=None, barentswatch_client_secret=None)
+        return Settings.model_construct(
+            barentswatch_client_id=None,
+            barentswatch_client_secret=None,
+            api_keys="",
+            ais_source="barentswatch",
+        )
 
     app.dependency_overrides[get_settings] = settings_without_barentswatch
     response = await client.get("/v1/validate/257000000")
@@ -62,12 +67,14 @@ async def test_norway_vessels_returns_snippets(
 ) -> None:
     monkeypatch.setenv("BARENTSWATCH_CLIENT_ID", "test-id")
     monkeypatch.setenv("BARENTSWATCH_CLIENT_SECRET", "test-secret")
+    monkeypatch.setenv("AISTRUTH_API_KEYS", "test-key")
+    monkeypatch.setenv("AISTRUTH_AIS_SOURCE", "barentswatch")
     get_settings.cache_clear()
 
     async def fake_token(cid: str, sec: str) -> str:
         return "t"
 
-    async def fake_all(token: str) -> list[dict[str, Any]]:
+    async def fake_all(token: str, *, ttl_seconds: int) -> list[dict[str, Any]]:
         return [
             {
                 "mmsi": 259139000,
@@ -79,9 +86,12 @@ async def test_norway_vessels_returns_snippets(
         ]
 
     monkeypatch.setattr(barentswatch_client, "fetch_access_token", fake_token)
-    monkeypatch.setattr(barentswatch_client, "fetch_latest_all_combined", fake_all)
+    monkeypatch.setattr(barentswatch_client, "fetch_latest_all_combined_cached", fake_all)
 
-    response = await client.get("/v1/ais/norway/vessels?limit=5")
+    response = await client.get(
+        "/v1/ais/norway/vessels?limit=5",
+        headers={"X-AIS-Key": "test-key"},
+    )
     get_settings.cache_clear()
 
     assert response.status_code == 200
@@ -90,7 +100,10 @@ async def test_norway_vessels_returns_snippets(
     assert payload[0]["mmsi"] == 259139000
     assert payload[0]["name"] == "NORDLYS"
 
-    response = await client.post("/v1/geodnet/sync-stations")
+    response = await client.post(
+        "/v1/geodnet/sync-stations",
+        headers={"X-AIS-Key": "test-key"},
+    )
     assert response.status_code == 503
     assert "DATABASE_URL" in response.json()["detail"]
 
@@ -112,7 +125,12 @@ def test_debug_geodnet_route_disabled(app: FastAPI) -> None:
 @pytest.mark.asyncio
 async def test_bulk_validate_returns_per_mmsi_errors(app: FastAPI, client: AsyncClient) -> None:
     def settings_without_barentswatch() -> Settings:
-        return Settings(barentswatch_client_id=None, barentswatch_client_secret=None)
+        return Settings.model_construct(
+            barentswatch_client_id=None,
+            barentswatch_client_secret=None,
+            api_keys="",
+            ais_source="barentswatch",
+        )
 
     app.dependency_overrides[get_settings] = settings_without_barentswatch
     response = await client.post("/v1/validate/bulk", json={"mmsi": [257000000, 257000001]})

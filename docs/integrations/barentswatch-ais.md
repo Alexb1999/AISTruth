@@ -99,8 +99,11 @@ curl -X POST https://id.barentswatch.no/connect/token \
 
 With credentials set, the FastAPI app exposes:
 
+- `GET /v1/ais/norway/vessels` — short **vessel picker** list (live snapshot; rate-limited and cached server-side).
 - `GET /v1/ais/norway/track/{mmsi}` — last **24 hours** of positions for one MMSI (historic endpoint).
 - `GET /v1/ais/norway/latest?mmsi=…&mmsi=…` — **latest** snapshot for one or more MMSIs (live endpoint).
+
+**Access control:** When `BARENTSWATCH_*` is configured on the server, these routes (and validate when `ais_source=barentswatch`) require a valid **`X-AIS-Key`** — DB tenant key or `AISTRUTH_API_KEYS` operator key. Norway browse is limited to **`ais_source=barentswatch`** tenants. Set `AISTRUTH_BARENTSWATCH_ALLOW_ANONYMOUS=true` only for isolated local dev.
 
 Responses are JSON arrays of `{ mmsi, time, lat, lon }` in **UTC** (`time` is ISO-8601).
 

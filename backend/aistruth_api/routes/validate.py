@@ -11,12 +11,11 @@ from typing import Any
 from uuid import uuid4
 
 import asyncpg
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import TypeAdapter
 
 from aistruth_api.config import Settings, get_settings
-from aistruth_api.integrations import barentswatch_client
+from aistruth_api.integrations.ais_resolver import fetch_ais_reports
 from aistruth_api.integrations.geodnet_catalog import (
     fetch_catalog_summary,
     fetch_k_nearest_nodes,
@@ -33,8 +32,9 @@ from aistruth_api.schemas import (
     ValidateWindow,
     ValidationRunRecord,
 )
+from aistruth_api.security import assert_barentswatch_access_allowed, get_tenant, get_tenant_id
+from aistruth_api.usage import log_usage_event
 from aistruth_core.ais_adapter import AisPositionReport
-from aistruth_core.barentswatch import reports_from_track_rows
 from aistruth_core.fusion import RtkFusionEngine
 from aistruth_core.nmea_gga import build_gpgga
 from aistruth_core.ntrip_probe import run_ntrip_probe
@@ -79,20 +79,6 @@ def _jsonb_to_dict(value: object) -> dict[str, Any]:
     return {}
 
 
-def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
-    cid = settings.barentswatch_client_id
-    sec = settings.barentswatch_client_secret
-    if not cid or not sec:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "BarentsWatch is not configured. Set BARENTSWATCH_CLIENT_ID and "
-                "BARENTSWATCH_CLIENT_SECRET. See docs/integrations/barentswatch-ais.md."
-            ),
-        )
-    return cid, sec
-
-
 def _http_error_detail(exc: HTTPException) -> str:
     return exc.detail if isinstance(exc.detail, str) else str(exc.detail)
 
@@ -106,8 +92,37 @@ async def _persist_validation_run(
         return
     run_id = uuid4()
     evidence = response.evidence.model_dump(mode="json")
+    tenant_id = get_tenant_id(request)
     async with pool.acquire() as conn:
         try:
+            await conn.execute(
+                """
+                INSERT INTO validation_runs (
+                    id,
+                    tenant_id,
+                    mmsi,
+                    window_from,
+                    window_to,
+                    confidence_score,
+                    flags,
+                    evidence,
+                    rules_version,
+                    nearest_node_id
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10)
+                """,
+                run_id,
+                tenant_id,
+                response.mmsi,
+                datetime.fromisoformat(response.window.from_),
+                datetime.fromisoformat(response.window.to),
+                response.confidence_score,
+                response.flags,
+                response.evidence.model_dump_json(),
+                str(evidence.get("rules_version") or RULES_VERSION),
+                response.evidence.nearest_node_id,
+            )
+        except asyncpg.UndefinedColumnError:
             await conn.execute(
                 """
                 INSERT INTO validation_runs (
@@ -135,6 +150,24 @@ async def _persist_validation_run(
             )
         except asyncpg.UndefinedTableError:
             log.warning("validation_runs table missing; run Alembic migrations")
+
+
+async def _log_validate_usage(request: Request, mmsi: int, *, units: int = 1) -> None:
+    from uuid import UUID
+
+    pool = getattr(request.app.state, "db_pool", None)
+    if pool is None:
+        return
+    api_key_id = getattr(request.state, "api_key_id", None)
+    parsed_key_id = api_key_id if isinstance(api_key_id, UUID) else None
+    await log_usage_event(
+        pool,
+        route="GET /v1/validate/{mmsi}",
+        tenant_id=get_tenant_id(request),
+        api_key_id=parsed_key_id,
+        mmsi=mmsi,
+        units=units,
+    )
 
 
 @router.post("/validate/bulk", response_model=BulkValidateResponse)
@@ -195,7 +228,7 @@ async def validate_mmsi(
     ),
     settings: Settings = Depends(get_settings),
 ) -> ValidateResponse:
-    """MVP validation: AIS track (BarentsWatch 24h) + implied-speed flags + optional PostGIS node.
+    """MVP validation: pluggable AIS track + implied-speed flags + optional PostGIS node.
 
     GEODNET / RTCM fusion is not applied yet; ``time_align_method`` documents that gap explicitly.
     Optional ``geodnet_probe`` attaches RTCM **telemetry** (bytes + RTCM message histogram) from a
@@ -204,27 +237,11 @@ async def validate_mmsi(
     if time_from is not None and time_to is not None and time_from > time_to:
         raise HTTPException(status_code=400, detail="from must be <= to")
 
-    cid, sec = _require_barentswatch_credentials(settings)
-    try:
-        token = await barentswatch_client.fetch_access_token(cid, sec)
-        rows = await barentswatch_client.fetch_track_last_24h_cached(
-            token,
-            mmsi,
-            ttl_seconds=settings.track_cache_ttl_seconds,
-        )
-        reports = reports_from_track_rows(rows)
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            raise HTTPException(
-                status_code=404,
-                detail="No AIS track for MMSI in upstream window",
-            ) from e
-        raise HTTPException(
-            status_code=502,
-            detail=barentswatch_client.format_upstream_http_error(e),
-        ) from e
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail="Upstream AIS request failed") from e
+    tenant = get_tenant(request)
+    assert_barentswatch_access_allowed(request, settings, tenant)
+    ais = await fetch_ais_reports(mmsi=mmsi, settings=settings, tenant=tenant)
+    reports = ais.reports
+    ais_source = ais.source
 
     filtered = filter_reports_by_window(reports, time_from, time_to)
     if not filtered:
@@ -256,7 +273,7 @@ async def validate_mmsi(
 
     evidence: dict[str, Any] = {
         "track_points": len(filtered),
-        "source": "barentswatch_historic_track_last_24h",
+        "source": ais_source,
         "rules_version": RULES_VERSION,
         "nearest_node_id": nearest_id,
         "baseline_m": baseline_m,
@@ -345,6 +362,7 @@ async def validate_mmsi(
         evidence=ValidateEvidence(**evidence),
     )
     await _persist_validation_run(request, response)
+    await _log_validate_usage(request, mmsi, units=1)
     return response
 
 
@@ -357,26 +375,49 @@ async def validation_history(
     pool = getattr(request.app.state, "db_pool", None)
     if pool is None:
         raise HTTPException(status_code=503, detail="DATABASE_URL not set or pool unavailable")
+    tenant_id = get_tenant_id(request)
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT
-                id::text,
+        if tenant_id is not None:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    id::text,
+                    mmsi,
+                    requested_at,
+                    window_from,
+                    window_to,
+                    confidence_score,
+                    flags,
+                    evidence
+                FROM validation_runs
+                WHERE mmsi = $1 AND tenant_id = $2
+                ORDER BY requested_at DESC
+                LIMIT $3
+                """,
                 mmsi,
-                requested_at,
-                window_from,
-                window_to,
-                confidence_score,
-                flags,
-                evidence
-            FROM validation_runs
-            WHERE mmsi = $1
-            ORDER BY requested_at DESC
-            LIMIT $2
-            """,
-            mmsi,
-            limit,
-        )
+                tenant_id,
+                limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    id::text,
+                    mmsi,
+                    requested_at,
+                    window_from,
+                    window_to,
+                    confidence_score,
+                    flags,
+                    evidence
+                FROM validation_runs
+                WHERE mmsi = $1
+                ORDER BY requested_at DESC
+                LIMIT $2
+                """,
+                mmsi,
+                limit,
+            )
     records = [
         {
             "id": row["id"],

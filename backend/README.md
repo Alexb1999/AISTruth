@@ -34,6 +34,15 @@ curl -X POST http://127.0.0.1:8000/v1/geodnet/sync-stations -H "X-AIS-Key: $AIST
 
 Or set `GEODNET_SYNC_STATIONS_AT_STARTUP=true` on API boot. See [docs/integrations/geodnet-rtk.md](../docs/integrations/geodnet-rtk.md). Validate responses include `evidence.geodnet_catalog` and K-nearest `geodnet_map_nodes` for the console map.
 
+**Pilot tenants (Phase 1):** After migrations through `20260520_0005`:
+
+```bash
+cd backend
+uv run python scripts/create_pilot_tenant.py --name "Acme Pilot" --slug acme-pilot --ais-source barentswatch
+```
+
+Prints a one-time `X-AIS-Key`. Use `GET /v1/me` to confirm tenant context; `GET /v1/admin/usage` with `X-Admin-Key` for month-to-date units. Set `AISTRUTH_AIS_SOURCE=file` and `FILE_REPLAY_PATH=tests/fixtures/sample_track.jsonl` for replay demos. See [docs/adr/004-tenant-and-usage.md](../docs/adr/004-tenant-and-usage.md).
+
 Start the API:
 
 ```bash

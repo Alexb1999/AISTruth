@@ -13,13 +13,11 @@ from aistruth_api.main import create_app
 
 @pytest.fixture
 def app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
-    for name in (
-        "AISTRUTH_ENABLE_GEODNET_DEBUG",
-        "BARENTSWATCH_CLIENT_ID",
-        "BARENTSWATCH_CLIENT_SECRET",
-        "DATABASE_URL",
-        "AISTRUTH_DATABASE_URL",
-    ):
+    monkeypatch.setenv("AISTRUTH_ENABLE_GEODNET_DEBUG", "false")
+    monkeypatch.setenv("AISTRUTH_API_KEYS", "")
+    monkeypatch.setenv("BARENTSWATCH_CLIENT_ID", "")
+    monkeypatch.setenv("BARENTSWATCH_CLIENT_SECRET", "")
+    for name in ("DATABASE_URL", "AISTRUTH_DATABASE_URL"):
         monkeypatch.delenv(name, raising=False)
     get_settings.cache_clear()
     return create_app()

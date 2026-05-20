@@ -9,7 +9,7 @@ import MetricCard from "@/components/MetricCard";
 import NtripProbePanel from "@/components/NtripProbePanel";
 import SectionHeader from "@/components/SectionHeader";
 import ValidationOutcomeCard from "@/components/ValidationOutcomeCard";
-import type { NorwayVesselSnippet, ValidateResponse } from "@/lib/types";
+import type { MeResponse, NorwayVesselSnippet, ValidateResponse } from "@/lib/types";
 import { btnGhost, btnPrimary, btnSecondary, detailsSummary, input, labelText, panel, panelInset } from "@/lib/ui";
 
 const TrackMap = dynamic(() => import("@/components/TrackMap"), { ssr: false });
@@ -65,6 +65,8 @@ export default function ConsolePage() {
   const [vesselPick, setVesselPick] = useState<NorwayVesselSnippet[]>([]);
   const [vesselsLoading, setVesselsLoading] = useState(false);
   const [vesselsError, setVesselsError] = useState<string | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [meLoaded, setMeLoaded] = useState(false);
   const [integrityScoreDetailOpen, setIntegrityScoreDetailOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -77,12 +79,66 @@ export default function ConsolePage() {
     else localStorage.removeItem("aistruth_api_key");
   }, [apiKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMe() {
+      setMeLoaded(false);
+      if (!apiKey.trim()) {
+        setMe(null);
+        setMeLoaded(true);
+        return;
+      }
+      try {
+        const res = await fetch(`${apiBase}/v1/me`, {
+          headers: { "X-AIS-Key": apiKey },
+        });
+        const text = await res.text();
+        if (!res.ok) {
+          if (!cancelled) {
+            setMe(null);
+            setMeLoaded(true);
+          }
+          return;
+        }
+        if (!cancelled) {
+          setMe(JSON.parse(text) as MeResponse);
+          setMeLoaded(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setMe(null);
+          setMeLoaded(true);
+        }
+      }
+    }
+    void loadMe();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, apiKey]);
+
+  const canBrowseNorwayFeed = useMemo(() => {
+    if (!apiKey.trim() || !meLoaded || !me?.authenticated) return false;
+    if (me.tenant?.ais_source) return me.tenant.ais_source === "barentswatch";
+    return true;
+  }, [apiKey, me, meLoaded]);
+
   async function loadNorwayVesselSuggestions() {
+    if (!apiKey.trim()) {
+      setVesselsError("Set your API key in Advanced before browsing the Norway feed.");
+      return;
+    }
+    if (!canBrowseNorwayFeed) {
+      setVesselsError(
+        "Norway feed browse requires a BarentsWatch tenant key. File replay and Spire tenants should enter MMSI directly.",
+      );
+      return;
+    }
     setVesselsLoading(true);
     setVesselsError(null);
     try {
       const res = await fetch(`${apiBase}/v1/ais/norway/vessels?limit=60`, {
-        headers: apiKey ? { "X-AIS-Key": apiKey } : undefined,
+        headers: { "X-AIS-Key": apiKey },
       });
       const text = await res.text();
       if (!res.ok) throw new Error(formatHttpError(res.status, text));
@@ -203,7 +259,13 @@ export default function ConsolePage() {
           <div className="p-5">
             <SectionHeader
               title="Check a vessel"
-              description="Norwegian AIS feed · last 24 h unless you set a window"
+              description={
+                me?.tenant?.ais_source === "file"
+                  ? "File replay tenant · enter MMSI directly"
+                  : me?.tenant?.ais_source === "spire"
+                    ? "Spire BYOK tenant · enter MMSI directly"
+                    : "Norwegian AIS feed · last 24 h unless you set a window"
+              }
             />
 
             <div className="mt-5 grid gap-4">
@@ -222,11 +284,20 @@ export default function ConsolePage() {
               <button
                 className={btnSecondary}
                 type="button"
-                disabled={vesselsLoading}
+                disabled={vesselsLoading || !canBrowseNorwayFeed}
                 onClick={() => void loadNorwayVesselSuggestions()}
               >
                 {vesselsLoading ? "Loading…" : "Browse Norway feed"}
               </button>
+              {!apiKey.trim() ? (
+                <p className="text-xs text-slate-500">
+                  Add your API key in Advanced to browse live Norwegian vessels (BarentsWatch tenants only).
+                </p>
+              ) : meLoaded && apiKey.trim() && !canBrowseNorwayFeed ? (
+                <p className="text-xs text-slate-500">
+                  Your tenant uses a different AIS source — enter MMSI manually instead.
+                </p>
+              ) : null}
               {vesselPick.length > 0 ? (
                 <label className="grid gap-1.5">
                   <span className={labelText}>Live vessel list</span>

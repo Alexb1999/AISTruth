@@ -32,11 +32,37 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("AISTRUTH_API_KEYS"),
         description="Comma-separated API keys allowed to call /v1 routes. Empty disables auth.",
     )
+    admin_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AISTRUTH_ADMIN_KEY"),
+        description="Secret for GET /v1/admin/usage and other operator routes.",
+    )
+    file_replay_path: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("FILE_REPLAY_PATH", "AISTRUTH_FILE_REPLAY_PATH"),
+        description="JSONL fixture path when AISTRUTH_AIS_SOURCE=file.",
+    )
     track_cache_ttl_seconds: int = Field(
         default=30,
         ge=0,
         validation_alias=AliasChoices("AISTRUTH_TRACK_CACHE_TTL"),
         description="In-process TTL for BarentsWatch track fetches. Set 0 to disable.",
+    )
+    vessel_list_cache_ttl_seconds: int = Field(
+        default=300,
+        ge=0,
+        validation_alias=AliasChoices("AISTRUTH_VESSEL_LIST_CACHE_TTL"),
+        description=(
+            "In-process TTL for BarentsWatch GET /latest/combined (vessel picker). Set 0 to disable."
+        ),
+    )
+    barentswatch_allow_anonymous: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("AISTRUTH_BARENTSWATCH_ALLOW_ANONYMOUS"),
+        description=(
+            "If true, allow unauthenticated callers to use server BarentsWatch credentials. "
+            "Keep false for any shared or deployed instance."
+        ),
     )
     ais_source: str = Field(
         default="barentswatch",

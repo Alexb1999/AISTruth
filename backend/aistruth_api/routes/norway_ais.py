@@ -11,9 +11,10 @@ from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
 from aistruth_api.rate_limit import limiter
 from aistruth_api.schemas import NorwayPoint, NorwayVesselSnippet
+from aistruth_api.security import require_barentswatch_tenant
 from aistruth_core.barentswatch import ais_position_from_combined_row, reports_from_track_rows
 
-router = APIRouter(tags=["ais-norway"])
+router = APIRouter(tags=["ais-norway"], dependencies=[Depends(require_barentswatch_tenant)])
 
 
 def _require_barentswatch_credentials(settings: Settings) -> tuple[str, str]:
@@ -50,7 +51,7 @@ def _snippet_from_latest_row(row: dict[str, Any]) -> NorwayVesselSnippet | None:
 
 
 @router.get("/ais/norway/vessels", response_model=list[NorwayVesselSnippet])
-@limiter.limit("20/minute")
+@limiter.limit("10/minute")
 async def norway_latest_vessel_pick_list(
     request: Request,
     limit: int = Query(
@@ -69,7 +70,10 @@ async def norway_latest_vessel_pick_list(
     cid, sec = _require_barentswatch_credentials(settings)
     try:
         token = await barentswatch_client.fetch_access_token(cid, sec)
-        rows = await barentswatch_client.fetch_latest_all_combined(token)
+        rows = await barentswatch_client.fetch_latest_all_combined_cached(
+            token,
+            ttl_seconds=settings.vessel_list_cache_ttl_seconds,
+        )
     except httpx.HTTPStatusError as e:
         raise HTTPException(
             status_code=502,

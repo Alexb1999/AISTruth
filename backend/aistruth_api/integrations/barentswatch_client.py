@@ -71,6 +71,7 @@ class BarentsWatchClient:
         self._token: str | None = None
         self._token_expires_at = 0.0
         self._track_cache: dict[tuple[str, int], _CachedTrack] = {}
+        self._latest_all_cache: _CachedTrack | None = None
 
     async def aclose(self) -> None:
         if self._owns_client:
@@ -124,6 +125,22 @@ class BarentsWatchClient:
         if not isinstance(data, list):
             raise RuntimeError(f"Unexpected latest/combined payload type: {type(data)}")
         return [row for row in data if isinstance(row, dict)]
+
+    async def fetch_latest_all_combined_cached(
+        self,
+        token: str,
+        *,
+        ttl_seconds: int,
+    ) -> list[dict[str, Any]]:
+        if ttl_seconds <= 0:
+            return await self.fetch_latest_all_combined(token)
+        now = time.monotonic()
+        cached = self._latest_all_cache
+        if cached and cached.expires_at > now:
+            return cached.rows
+        rows = await self.fetch_latest_all_combined(token)
+        self._latest_all_cache = _CachedTrack(expires_at=now + ttl_seconds, rows=rows)
+        return rows
 
     @retry(
         retry=retry_if_exception_type(httpx.HTTPError),
@@ -201,6 +218,17 @@ async def fetch_access_token(client_id: str, client_secret: str) -> str:
 async def fetch_latest_all_combined(token: str) -> list[dict[str, Any]]:
     """GET combined latest positions for all vessels (BarentsWatch open AIS)."""
     return await _default_client.fetch_latest_all_combined(token)
+
+
+async def fetch_latest_all_combined_cached(
+    token: str,
+    *,
+    ttl_seconds: int,
+) -> list[dict[str, Any]]:
+    return await _default_client.fetch_latest_all_combined_cached(
+        token,
+        ttl_seconds=ttl_seconds,
+    )
 
 
 async def fetch_latest_positions(token: str, mmsi_list: list[int]) -> list[dict[str, Any]]:

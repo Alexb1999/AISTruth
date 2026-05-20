@@ -39,6 +39,50 @@ class SpireAisSource:
         if self._owns_client:
             await self.client.aclose()
 
+    async def fetch_reports_for_mmsi(self, mmsi: int) -> list[AisPositionReport]:
+        """Return time-sorted reports for one MMSI (history endpoint or latest fallback)."""
+        history = await self._try_fetch_history(mmsi)
+        if history:
+            return sorted(history, key=lambda r: r.t)
+        rows = await self.fetch_latest_positions()
+        reports = [self._row_to_report(row) for row in rows if int(row.get("mmsi", mmsi)) == mmsi]
+        return sorted(reports, key=lambda r: r.t)
+
+    async def _try_fetch_history(self, mmsi: int) -> list[AisPositionReport]:
+        """Best-effort Spire history; empty list when endpoint unavailable."""
+        candidates = (
+            f"{self.base_url}/ais/v1/targets/{mmsi}/positions",
+            f"{self.base_url}/ais/vessels/{mmsi}/positions",
+        )
+        for url in candidates:
+            try:
+                response = await self.client.get(
+                    url,
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                )
+            except httpx.HTTPError:
+                continue
+            if response.status_code == 404:
+                continue
+            response.raise_for_status()
+            parsed = self._parse_position_list(response.json(), default_mmsi=mmsi)
+            if parsed:
+                return parsed
+        return []
+
+    @staticmethod
+    def _parse_position_list(payload: object, *, default_mmsi: int) -> list[AisPositionReport]:
+        rows: list[dict[str, Any]] = []
+        if isinstance(payload, dict):
+            raw = payload.get("data") or payload.get("positions") or payload.get("results")
+            if isinstance(raw, list):
+                rows = [row for row in raw if isinstance(row, dict)]
+        elif isinstance(payload, list):
+            rows = [row for row in payload if isinstance(row, dict)]
+        if not rows:
+            return []
+        return [SpireAisSource._row_to_report({**row, "mmsi": row.get("mmsi", default_mmsi)}) for row in rows]
+
     async def fetch_latest_positions(self) -> list[dict[str, Any]]:
         response = await self.client.get(
             f"{self.base_url}/ais/vessels",

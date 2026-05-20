@@ -5,6 +5,9 @@ from starlette.requests import Request
 
 
 def rate_limit_key(request: Request) -> str:
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if tenant_id is not None:
+        return f"tenant:{tenant_id}"
     api_key = request.headers.get("X-AIS-Key")
     if api_key:
         return f"api-key:{api_key}"
