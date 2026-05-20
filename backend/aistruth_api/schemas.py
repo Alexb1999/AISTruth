@@ -112,6 +112,17 @@ class NearestNodeMapInfo(BaseModel):
     distance_m: float
 
 
+class GeodnetCatalogInfo(BaseModel):
+    """Station catalog honesty metadata for demos vs live GEODNET sync."""
+
+    mode: str = Field(description="fixture | hybrid | synced")
+    active_node_count: int = 0
+    synced_node_count: int = 0
+    fixture_node_count: int = 0
+    last_synced_at: str | None = None
+    demo_warning: bool = False
+
+
 class GeodnetMapNode(BaseModel):
     """Reference station for map overlays (precision footprint visualization)."""
 
@@ -119,6 +130,8 @@ class GeodnetMapNode(BaseModel):
     name: str
     lat: float
     lon: float
+    distance_m: float | None = None
+    is_nearest: bool = False
 
 
 class ValidateEvidence(BaseModel):
@@ -131,7 +144,11 @@ class ValidateEvidence(BaseModel):
     map_track_points: list[MapTrackPoint] = Field(default_factory=list)
     geodnet_map_nodes: list[GeodnetMapNode] = Field(
         default_factory=list,
-        description="GEODNET nodes in a padded bbox around the AIS track for map overlays.",
+        description="K-nearest active GEODNET nodes to latest AIS (for map overlays).",
+    )
+    geodnet_catalog: GeodnetCatalogInfo | None = Field(
+        default=None,
+        description="Catalog mode and counts — surfaces demo vs synced network in UI.",
     )
     max_implied_speed_knots: float | None = None
     time_align_method: str

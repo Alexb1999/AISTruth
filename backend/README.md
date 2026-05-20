@@ -23,6 +23,17 @@ DATABASE_URL=postgresql://aistruth:aistruth@localhost:5432/aistruth alembic upgr
 
 `docker/init-db` remains a local bootstrap convenience; Alembic is the schema source of truth for `stg` and `prod`.
 
+**GEODNET station catalog (map / nearest base):** After `alembic upgrade head`, the DB includes ~12 Norway **demo fixtures** along the coast. For discovery demos that must match [rtk.geodnet.com](https://rtk.geodnet.com/) density, sync the live catalog:
+
+```bash
+export GEODNET_RTK_APP_ID="..."
+export GEODNET_RTK_APP_KEY="..."
+# optional: export GEODNET_RTK_STATION_REGION=NOR
+curl -X POST http://127.0.0.1:8000/v1/geodnet/sync-stations -H "X-AIS-Key: $AISTRUTH_API_KEYS"
+```
+
+Or set `GEODNET_SYNC_STATIONS_AT_STARTUP=true` on API boot. See [docs/integrations/geodnet-rtk.md](../docs/integrations/geodnet-rtk.md). Validate responses include `evidence.geodnet_catalog` and K-nearest `geodnet_map_nodes` for the console map.
+
 Start the API:
 
 ```bash

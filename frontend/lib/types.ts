@@ -25,6 +25,17 @@ export type GeodnetMapNode = {
   name: string;
   lat: number;
   lon: number;
+  distance_m?: number | null;
+  is_nearest?: boolean;
+};
+
+export type GeodnetCatalogInfo = {
+  mode: "fixture" | "hybrid" | "synced" | string;
+  active_node_count: number;
+  synced_node_count: number;
+  fixture_node_count: number;
+  last_synced_at?: string | null;
+  demo_warning: boolean;
 };
 
 export type SpoofingFinding = {
@@ -78,6 +89,7 @@ export type ValidateResponse = {
     nearest_node?: NearestNodeMapInfo | null;
     map_track_points?: MapTrackPoint[];
     geodnet_map_nodes?: GeodnetMapNode[];
+    geodnet_catalog?: GeodnetCatalogInfo | null;
     max_implied_speed_knots?: number | null;
     time_align_method: string;
     spoofing_findings: SpoofingFinding[];

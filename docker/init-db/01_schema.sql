@@ -22,7 +22,13 @@ VALUES
     ('demo-no-stavanger', 'Demo node Stavanger (NO)', ST_GeogFromText('SRID=4326;POINT(5.7331 58.9700)')),
     ('demo-no-kristiansand', 'Demo node Kristiansand (NO)', ST_GeogFromText('SRID=4326;POINT(7.9956 58.1467)')),
     ('demo-no-bodo', 'Demo node Bodø (NO)', ST_GeogFromText('SRID=4326;POINT(14.4049 67.2804)')),
-    ('demo-no-tromso', 'Demo node Tromsø (NO)', ST_GeogFromText('SRID=4326;POINT(18.9553 69.6492)'));
+    ('demo-no-tromso', 'Demo node Tromsø (NO)', ST_GeogFromText('SRID=4326;POINT(18.9553 69.6492)')),
+    ('demo-no-alesund', 'Demo node Ålesund (NO)', ST_GeogFromText('SRID=4326;POINT(6.1549 62.4722)')),
+    ('demo-no-molde', 'Demo node Molde (NO)', ST_GeogFromText('SRID=4326;POINT(7.1617 62.7372)')),
+    ('demo-no-kristiansund', 'Demo node Kristiansund (NO)', ST_GeogFromText('SRID=4326;POINT(7.7279 63.1105)')),
+    ('demo-no-trondheim', 'Demo node Trondheim (NO)', ST_GeogFromText('SRID=4326;POINT(10.3951 63.4305)')),
+    ('demo-no-andalsnes', 'Demo node Åndalsnes (NO)', ST_GeogFromText('SRID=4326;POINT(7.6882 62.5675)')),
+    ('demo-no-narvik', 'Demo node Narvik (NO)', ST_GeogFromText('SRID=4326;POINT(17.4272 68.4385)'));
 
 -- Dev convenience only. Alembic is the source of truth for staging/production schemas.
 CREATE TABLE validation_runs (

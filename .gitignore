@@ -23,3 +23,7 @@ htmlcov/
 *.log
 *.rinex
 .DS_Store
+
+# Private commercial / sales (local only — not for public repo)
+docs/product-strategy-guide.md
+docs/sales/

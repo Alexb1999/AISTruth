@@ -17,6 +17,12 @@ from pydantic import TypeAdapter
 
 from aistruth_api.config import Settings, get_settings
 from aistruth_api.integrations import barentswatch_client
+from aistruth_api.integrations.geodnet_catalog import (
+    fetch_catalog_summary,
+    fetch_k_nearest_nodes,
+    map_nodes_for_evidence,
+    nearest_from_k_list,
+)
 from aistruth_api.rate_limit import limiter
 from aistruth_api.schemas import (
     BulkValidateRequest,
@@ -232,73 +238,17 @@ async def validate_mmsi(
     baseline_m: float | None = None
     nearest_node: dict[str, Any] | None = None
     geodnet_map_nodes: list[dict[str, Any]] = []
+    geodnet_catalog: dict[str, Any] | None = None
     pool = getattr(request.app.state, "db_pool", None)
     if pool is not None:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT id,
-                       name,
-                       ST_Y(geom::geometry) AS lat,
-                       ST_X(geom::geometry) AS lon,
-                       ST_Distance(
-                           geom,
-                           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-                       ) AS dist_m
-                FROM geodnet_nodes
-                WHERE active
-                ORDER BY geom <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-                LIMIT 1
-                """,
-                last.lon,
-                last.lat,
-            )
-            if row is not None:
-                nearest_id = str(row["id"])
-                baseline_m = float(row["dist_m"])
-                nearest_node = {
-                    "id": nearest_id,
-                    "name": str(row["name"]),
-                    "lat": float(row["lat"]),
-                    "lon": float(row["lon"]),
-                    "distance_m": baseline_m,
-                }
-
-            lats = [r.lat for r in filtered]
-            lons = [r.lon for r in filtered]
-            min_lat, max_lat = min(lats), max(lats)
-            min_lon, max_lon = min(lons), max(lons)
-            pad_deg = 0.85
-            env_min_lon = max(-180.0, min_lon - pad_deg)
-            env_min_lat = max(-90.0, min_lat - pad_deg)
-            env_max_lon = min(180.0, max_lon + pad_deg)
-            env_max_lat = min(90.0, max_lat + pad_deg)
-            map_rows = await conn.fetch(
-                """
-                SELECT id,
-                       name,
-                       ST_Y(geom::geometry) AS lat,
-                       ST_X(geom::geometry) AS lon
-                FROM geodnet_nodes
-                WHERE active
-                  AND geom && ST_MakeEnvelope($1, $2, $3, $4, 4326)
-                ORDER BY id
-                LIMIT 350
-                """,
-                env_min_lon,
-                env_min_lat,
-                env_max_lon,
-                env_max_lat,
-            )
-            geodnet_map_nodes = [
-                {
-                    "id": str(r["id"]),
-                    "name": str(r["name"]),
-                    "lat": float(r["lat"]),
-                    "lon": float(r["lon"]),
-                }
-                for r in map_rows
-            ]
+            geodnet_catalog = await fetch_catalog_summary(conn)
+            k_nearest = await fetch_k_nearest_nodes(conn, lon=last.lon, lat=last.lat)
+            geodnet_map_nodes = map_nodes_for_evidence(k_nearest)
+            nearest_node = nearest_from_k_list(k_nearest)
+            if nearest_node is not None:
+                nearest_id = nearest_node["id"]
+                baseline_m = float(nearest_node["distance_m"])
 
     window_start = min(r.t for r in filtered).isoformat()
     window_end = max(r.t for r in filtered).isoformat()
@@ -313,6 +263,7 @@ async def validate_mmsi(
         "nearest_node": nearest_node,
         "map_track_points": map_track_points,
         "geodnet_map_nodes": geodnet_map_nodes,
+        "geodnet_catalog": geodnet_catalog,
         "max_implied_speed_knots": motion.max_implied_speed_knots,
         "time_align_method": "slerp_v1",
         "spoofing_findings": [finding.to_dict() for finding in spoofing_findings],

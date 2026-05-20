@@ -382,7 +382,10 @@ export default function TrackMap({
         />
         <InvalidateSizeOnContainerChange />
         <FitBounds bounds={bounds} />
-        {zoneNodes.map((node) => (
+        {zoneNodes.map((node) => {
+          const isNearest = node.is_nearest ?? nearest?.id === node.id;
+          const distM = node.distance_m ?? (isNearest && nearest ? nearest.distance_m : null);
+          return (
           <Fragment key={node.id}>
             <Circle
               center={[node.lat, node.lon]}
@@ -391,8 +394,8 @@ export default function TrackMap({
                 color: '#22c55e',
                 weight: 1,
                 fillColor: '#4ade80',
-                fillOpacity: 0.12,
-                opacity: 0.42,
+                fillOpacity: isNearest ? 0.12 : 0.08,
+                opacity: isNearest ? 0.42 : 0.28,
               }}
             />
             <Circle
@@ -400,30 +403,39 @@ export default function TrackMap({
               radius={GEODNET_INNER_RADIUS_M}
               pathOptions={{
                 color: '#166534',
-                weight: 1.5,
+                weight: isNearest ? 1.5 : 1,
                 fillColor: '#15803d',
-                fillOpacity: 0.22,
-                opacity: 0.48,
+                fillOpacity: isNearest ? 0.22 : 0.14,
+                opacity: isNearest ? 0.48 : 0.32,
               }}
             />
             <CircleMarker
               center={[node.lat, node.lon]}
-              radius={nearest?.id === node.id ? 6 : 4}
+              radius={isNearest ? 6 : 4}
               pathOptions={{
-                color: nearest?.id === node.id ? '#ecfdf5' : '#15803d',
-                weight: nearest?.id === node.id ? 2 : 1,
+                color: isNearest ? '#ecfdf5' : '#15803d',
+                weight: isNearest ? 2 : 1,
                 fillColor: '#22c55e',
                 fillOpacity: 0.95,
               }}
             >
               <Popup>
                 GEODNET: {node.name}
-                {nearest?.id === node.id ? (
+                {isNearest ? (
                   <>
                     <br />
                     <strong>Nearest to latest AIS</strong>
+                    {distM != null ? (
+                      <>
+                        <br />
+                        Baseline ≈ {Math.round(distM)} m
+                      </>
+                    ) : null}
+                  </>
+                ) : distM != null ? (
+                  <>
                     <br />
-                    Baseline ≈ {Math.round(nearest.distance_m)} m
+                    Distance ≈ {Math.round(distM / 1000)} km
                   </>
                 ) : null}
                 <br />
@@ -433,7 +445,8 @@ export default function TrackMap({
               </Popup>
             </CircleMarker>
           </Fragment>
-        ))}
+          );
+        })}
         {positions.length >= 2 ? (
           <Polyline
             positions={positions}

@@ -165,6 +165,9 @@ export default function ConsolePage() {
   const flagCount =
     (data?.flags.length ?? 0) + (data?.evidence.spoofing_findings.length ?? 0);
 
+  const geodnetCatalog = data?.evidence.geodnet_catalog;
+  const showGeodnetDemoBanner = Boolean(geodnetCatalog?.demo_warning);
+
   return (
     <main className="mx-auto max-w-7xl px-5 pb-16 pt-6 sm:px-6 lg:pt-8">
       {/* Hero */}
@@ -352,9 +355,26 @@ export default function ConsolePage() {
                 <div className="px-4 pb-3 pt-4">
                   <SectionHeader
                     title="Track & reference network"
-                    description="AIS positions with nearest GEODNET stations and optional correction sampling"
+                    description="AIS positions with K-nearest GEODNET stations and optional correction sampling"
                   />
                 </div>
+                {showGeodnetDemoBanner ? (
+                  <div
+                    className="mx-4 mb-3 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 text-xs leading-relaxed text-amber-100"
+                    role="status"
+                  >
+                    <strong className="font-semibold text-amber-50">Demo reference network.</strong>{" "}
+                    Showing {geodnetCatalog?.active_node_count ?? 0} stations
+                    {geodnetCatalog?.synced_node_count
+                      ? ` (${geodnetCatalog.synced_node_count} live-synced)`
+                      : " (fixtures only)"}
+                    . Sync live stations via{" "}
+                    <code className="rounded bg-slate-900/60 px-1 py-0.5 text-[10px]">
+                      POST /v1/geodnet/sync-stations
+                    </code>{" "}
+                    (see docs/integrations/geodnet-rtk.md).
+                  </div>
+                ) : null}
                 <TrackMap data={data} loading={loading} embedded />
               </section>
 
