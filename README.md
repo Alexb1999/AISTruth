@@ -19,8 +19,6 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 
 ## 📄 Documentation
 
-- [Frontend dashboard requirements](docs/frontend-dashboard-requirements.md): MVP scope, user stories, map/fusion honesty, API dependencies, future increments.
-- [Master scope & architecture](docs/AISTruth_Master_Scope.md): cloud-first SaaS blueprint, GEODNET fusion gaps, branching (`dev` / `stg` / `prod`), integration appendix (CRS, legal, API sketch link), roadmap, and monetization.
 - [ADR 001 — API contract sketch](docs/adr/001-api-contract-sketch.md): early `/v1/validate` shape and error model.
 - [BarentsWatch AIS (Phase 1 dev feed)](docs/integrations/barentswatch-ais.md): Norwegian open AIS — credentials and API routes.
 - [GEODNET RTK / NTRIP](docs/integrations/geodnet-rtk.md): caster notes, trial vs paid, and the `scripts/ntrip_smoke.py` smoke test.

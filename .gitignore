@@ -24,6 +24,8 @@ htmlcov/
 *.rinex
 .DS_Store
 
-# Private commercial / sales (local only — not for public repo)
+# Private product / commercial docs (keep in repo locally; do not commit or push)
 docs/product-strategy-guide.md
+docs/AISTruth_Master_Scope.md
+docs/frontend-dashboard-requirements.md
 docs/sales/
