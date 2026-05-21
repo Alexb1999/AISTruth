@@ -1,7 +1,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 
-import Logo from "@/components/Logo";
+import MarketingShell from "@/components/MarketingShell";
 
 const LandingMapDemo = dynamic(() => import("@/components/LandingMapDemo"), { ssr: false });
 
@@ -65,36 +65,7 @@ const STEPS = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Header */}
-      <header className="sticky top-0 z-[1000] border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-2 sm:px-6 sm:py-2.5">
-          <Logo href="/" size="nav" priority />
-          <nav className="hidden items-center gap-8 text-sm font-medium leading-none text-slate-600 md:flex">
-            <a className="transition hover:text-slate-900" href="#capabilities">
-              Product
-            </a>
-            <a className="transition hover:text-slate-900" href="#how-it-works">
-              How it works
-            </a>
-            <a
-              className="transition hover:text-slate-900"
-              href="https://github.com/Alexb1999/AISTruth"
-              rel="noreferrer"
-              target="_blank"
-            >
-              GitHub
-            </a>
-          </nav>
-          <Link
-            className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-teal-600/20 transition hover:bg-teal-500"
-            href="/console"
-          >
-            Open demo
-          </Link>
-        </div>
-      </header>
-
+    <MarketingShell active="product">
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-slate-200/80 bg-white">
         <div
@@ -126,16 +97,16 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 className="inline-flex items-center justify-center rounded-xl bg-teal-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/25 transition hover:bg-teal-500"
+                href="/contact"
+              >
+                Request a pilot
+              </Link>
+              <Link
+                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
                 href="/console"
               >
                 Try the live demo
               </Link>
-              <a
-                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
-                href="#how-it-works"
-              >
-                See how it works
-              </a>
             </div>
             <dl className="mt-10 grid grid-cols-3 gap-4 border-t border-slate-200 pt-8">
               <div>
@@ -235,37 +206,25 @@ export default function LandingPage() {
             See it on a real vessel track
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-slate-600 leading-relaxed">
-            Open the demo console, pick a vessel from the Norway feed, and walk through the integrity summary and map —
-            ready for your next ops or charter review.
+            Open the demo console or tell us about your fleet — we&apos;ll scope a pilot with your AIS feed and
+            operating area.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               className="inline-flex items-center justify-center rounded-xl bg-teal-600 px-7 py-3.5 text-sm font-semibold text-white shadow-lg shadow-teal-600/20 transition hover:bg-teal-500"
+              href="/contact"
+            >
+              Request pilot
+            </Link>
+            <Link
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-7 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               href="/console"
             >
               Launch demo console
             </Link>
-            <a
-              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-7 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              href="https://github.com/Alexb1999/AISTruth"
-              rel="noreferrer"
-              target="_blank"
-            >
-              View on GitHub
-            </a>
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-5 sm:flex-row sm:px-6">
-          <Logo href="/" size="md" />
-          <p className="max-w-sm text-center text-xs text-slate-500 sm:text-right">
-            Pilot partnerships &amp; enterprise integrations — open source core, commercial pilots welcome.
-          </p>
-        </div>
-      </footer>
-    </div>
+    </MarketingShell>
   );
 }

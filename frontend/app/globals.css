@@ -7,8 +7,20 @@
 }
 
 body {
-  @apply min-h-screen bg-slate-900 text-slate-100 antialiased;
+  @apply min-h-screen bg-slate-50 text-slate-900 antialiased;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Marketing pages — reset list styles so custom step numbers do not double-up */
+.marketing-page ol,
+.marketing-page ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.marketing-page a {
+  @apply underline-offset-2;
 }
 
 /* Keep Leaflet panes inside the map card — not above the sticky header */

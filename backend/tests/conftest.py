@@ -17,6 +17,7 @@ def app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     monkeypatch.setenv("AISTRUTH_API_KEYS", "")
     monkeypatch.setenv("BARENTSWATCH_CLIENT_ID", "")
     monkeypatch.setenv("BARENTSWATCH_CLIENT_SECRET", "")
+    monkeypatch.setenv("AISTRUTH_LEADS_ENABLED", "false")
     for name in ("DATABASE_URL", "AISTRUTH_DATABASE_URL"):
         monkeypatch.delenv(name, raising=False)
     get_settings.cache_clear()

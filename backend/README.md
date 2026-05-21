@@ -43,6 +43,8 @@ uv run python scripts/create_pilot_tenant.py --name "Acme Pilot" --slug acme-pil
 
 Prints a one-time `X-AIS-Key`. Use `GET /v1/me` to confirm tenant context; `GET /v1/admin/usage` with `X-Admin-Key` for month-to-date units. Set `AISTRUTH_AIS_SOURCE=file` and `FILE_REPLAY_PATH=tests/fixtures/sample_track.jsonl` for replay demos. See [docs/adr/004-tenant-and-usage.md](../docs/adr/004-tenant-and-usage.md).
 
+**Pilot leads (Phase 2):** After migration `20260521_0006`, enable with `AISTRUTH_LEADS_ENABLED=true` and set `AISTRUTH_LEADS_KEY` (same value as `LEADS_SUBMIT_KEY` in `frontend/.env.local`). The contact form posts to Next.js `POST /api/leads`, which proxies to `POST /v1/leads` with the secret header. Disabled by default so OSS clones do not expose a public write endpoint. Rate limit: 3/hour per IP; duplicate email blocked for 1 hour.
+
 Start the API:
 
 ```bash

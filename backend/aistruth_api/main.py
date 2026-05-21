@@ -24,6 +24,7 @@ from aistruth_api.routes import (
     demo,
     geodnet_sync,
     health,
+    leads,
     me,
     nearest,
     norway_ais,
@@ -81,6 +82,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
     protected = [Depends(require_api_key)]
     app.include_router(health.router)
+    app.include_router(leads.router, prefix="/v1")
     app.include_router(demo.router, prefix="/v1", dependencies=protected)
     app.include_router(nearest.router, prefix="/v1", dependencies=protected)
     app.include_router(norway_ais.router, prefix="/v1", dependencies=protected)

@@ -193,3 +193,23 @@ class ValidationRunRecord(BaseModel):
     confidence_score: int
     flags: list[str]
     evidence: dict[str, Any]
+
+
+class PilotLeadCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    organization: str = Field(min_length=1, max_length=200)
+    email: str = Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    region: str = Field(min_length=1, max_length=200)
+    fleet_size: str | None = Field(
+        default=None,
+        max_length=100,
+        description="Monitoring scope: fleet size or regional/port authority use case.",
+    )
+    ais_feed: str | None = Field(default=None, max_length=200)
+    message: str | None = Field(default=None, max_length=4000)
+    website: str | None = Field(default=None, max_length=200)
+
+
+class PilotLeadResponse(BaseModel):
+    id: str
+    status: str = "received"

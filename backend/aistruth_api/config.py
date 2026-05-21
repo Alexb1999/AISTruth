@@ -64,6 +64,18 @@ class Settings(BaseSettings):
             "Keep false for any shared or deployed instance."
         ),
     )
+    leads_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("AISTRUTH_LEADS_ENABLED"),
+        description="If true, register POST /v1/leads for pilot contact capture.",
+    )
+    leads_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("AISTRUTH_LEADS_KEY"),
+        description=(
+            "When set, POST /v1/leads requires matching X-Leads-Key (use Next.js /api/leads proxy)."
+        ),
+    )
     ais_source: str = Field(
         default="barentswatch",
         validation_alias=AliasChoices("AISTRUTH_AIS_SOURCE"),

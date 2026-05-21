@@ -22,6 +22,8 @@ Standard AIS data is "noisy" and vulnerable. **AISTruth** provides a high-fideli
 - [ADR 001 — API contract sketch](docs/adr/001-api-contract-sketch.md): early `/v1/validate` shape and error model.
 - [BarentsWatch AIS (Phase 1 dev feed)](docs/integrations/barentswatch-ais.md): Norwegian open AIS — credentials and API routes.
 - [GEODNET RTK / NTRIP](docs/integrations/geodnet-rtk.md): caster notes, trial vs paid, and the `scripts/ntrip_smoke.py` smoke test.
+- [Validation & ground truth methodology](docs/methodology/validation-and-ground-truth.md): what we can prove today, ground-truth hierarchy, staged benchmarks, and publication path.
+- [Stage 2 field campaign protocol](docs/methodology/stage-2-field-campaign-protocol.md): equipment, time sync, field-day runbook, analysis pipeline.
 
 ## 🏗 Project Structure
 
